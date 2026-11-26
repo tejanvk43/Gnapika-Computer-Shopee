@@ -19,11 +19,10 @@ import { HeaderNav } from '@/components/dashboard/HeaderNav'
 
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-  { name: 'Customers', href: '/dashboard/customers', icon: Users },
   { name: 'Billing / POS', href: '/dashboard/billing', icon: Receipt },
-  { name: 'Products', href: '/dashboard/products', icon: Package },
-  { name: 'Inventory', href: '/dashboard/inventory', icon: Warehouse },
   { name: 'Purchases', href: '/dashboard/purchases', icon: ShoppingCart },
+  { name: 'Customers', href: '/dashboard/customers', icon: Users },
+  { name: 'Inventory', href: '/dashboard/inventory', icon: Warehouse },
   { name: 'Services', href: '/dashboard/services', icon: Wrench },
   { name: 'Reports', href: '/dashboard/reports', icon: 'BarChart3' as any, iconComponent: BarChart3 },
 ]

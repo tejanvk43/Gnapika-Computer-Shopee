@@ -7,6 +7,7 @@ import {
   Receipt,
   Wrench,
   Package,
+  ShoppingCart,
   TrendingUp,
   Plus,
   ArrowRight,
@@ -180,27 +181,27 @@ export default async function DashboardPage() {
           </div>
         </div>
 
-        {/* Card 3: Products */}
+        {/* Card 3: Purchases & Inward Stock */}
         <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 p-5 rounded-2xl shadow-xs hover:shadow-md transition">
           <div className="flex items-center justify-between mb-3">
             <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-950 text-emerald-600 flex items-center justify-center">
-              <Package className="w-5 h-5 text-emerald-600" />
+              <ShoppingCart className="w-5 h-5 text-emerald-600" />
             </div>
             <Link
-              href="/dashboard/products/new"
+              href="/dashboard/purchases"
               className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 transition"
             >
               <Plus className="w-3.5 h-3.5" />
-              <span>Add Product</span>
+              <span>Purchase Bill</span>
             </Link>
           </div>
-          <h3 className="text-slate-500 text-xs font-semibold uppercase tracking-wider">Products</h3>
+          <h3 className="text-slate-500 text-xs font-semibold uppercase tracking-wider">Stock &amp; Purchases</h3>
           <p className="text-2xl font-bold text-slate-900 dark:text-white mt-1">
-            {stats.productCount} <span className="text-xs font-normal text-slate-400">Items Cataloged</span>
+            {stats.productCount} <span className="text-xs font-normal text-slate-400">Products in Stock</span>
           </p>
           <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800">
-            <Link href="/dashboard/products" className="text-xs font-medium text-emerald-600 hover:underline flex items-center gap-1">
-              <span>View Product List</span>
+            <Link href="/dashboard/purchases?tab=history" className="text-xs font-medium text-emerald-600 hover:underline flex items-center gap-1">
+              <span>View Purchase Bills</span>
               <ArrowRight className="w-3 h-3" />
             </Link>
           </div>

@@ -4,6 +4,9 @@ import { Session } from '@supabase/supabase-js'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 
+// In-memory fast cache to eliminate redundant remote DB round-trips on every button click & request
+const userContextCache = new Map<string, { context: any; expiresAt: number }>()
+
 /**
  * Creates an SSR server client in Next.js Server Components / Route Handlers
  */
@@ -49,8 +52,7 @@ export async function getSession(): Promise<{ user: any; session: Session | null
     const serverClient = createSupabaseServerClient()
     const { data: { user }, error: userError } = await serverClient.auth.getUser()
     if (user && !userError) {
-      const { data: { session } } = await serverClient.auth.getSession()
-      return { user, session: session || null }
+      return { user, session: null }
     }
     return { user: null, session: null }
   } catch (err) {
@@ -61,11 +63,17 @@ export async function getSession(): Promise<{ user: any; session: Session | null
 
 /**
  * Fetches user details and their organization context from the DB.
- * Automatically provisions an organization/membership if the user is newly signed up.
+ * Uses high-speed in-memory caching to prevent latency spikes on button clicks and API requests.
  */
 export async function getCurrentUserContext() {
   const { user } = await getSession()
   if (!user) return null
+
+  // Check in-memory cache first (0ms latency!)
+  const cached = userContextCache.get(user.id)
+  if (cached && Date.now() < cached.expiresAt) {
+    return cached.context
+  }
 
   // 1. Find profile by user ID or email using privileged client
   let { data: profile } = await supabaseService
@@ -96,9 +104,9 @@ export async function getCurrentUserContext() {
     }
   }
 
-  // 3. Upsert user profile to guarantee user.id is matched
+  // 3. Upsert user profile only if it does not exist yet (brand new signup)
   const fullName = user.user_metadata?.full_name || user.email?.split('@')[0] || 'User'
-  if (!profile || profile.id !== user.id) {
+  if (!profile) {
     const { data: upsertedProfile } = await supabaseService
       .from('user_profiles')
       .upsert(
@@ -116,23 +124,30 @@ export async function getCurrentUserContext() {
     if (upsertedProfile) {
       profile = upsertedProfile
     }
+
+    if (user.id && orgId) {
+      await supabaseService
+        .from('organization_memberships')
+        .upsert(
+          {
+            user_profile_id: user.id,
+            organization_id: orgId,
+            role: 'Owner',
+          },
+          { onConflict: 'user_profile_id,organization_id' }
+        )
+    }
   }
 
-  // 4. Ensure organization membership exists
-  if (user.id && orgId) {
-    await supabaseService
-      .from('organization_memberships')
-      .upsert(
-        {
-          user_profile_id: user.id,
-          organization_id: orgId,
-          role: 'Owner',
-        },
-        { onConflict: 'user_profile_id,organization_id' }
-      )
-  }
+  const result = { user, organization_id: orgId }
 
-  return { user, organization_id: orgId }
+  // Cache for 3 minutes so repeated button clicks / API calls execute instantly in 0ms
+  userContextCache.set(user.id, {
+    context: result,
+    expiresAt: Date.now() + 180_000,
+  })
+
+  return result
 }
 
 export const auth = {

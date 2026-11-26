@@ -428,26 +428,7 @@ export function ServiceBookingForm({
               <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
                 Service Type *
               </label>
-              <select
-                value={serviceType}
-                onChange={(e) => setServiceType(e.target.value)}
-                className="w-full px-3.5 py-2 text-sm bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 text-slate-900 dark:text-white"
-              >
-                {SERVICE_TYPES.map((t) => (
-                  <option key={t} value={t}>
-                    {t}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Custom Service Type if Other was selected (Matching Diagram) */}
-            {serviceType === 'Other' ? (
-              <div>
-                <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
-                  Service Type (If other was selected) *
-                </label>
-                <input
+              <input
                   type="text"
                   value={customServiceType}
                   onChange={(e) => setCustomServiceType(e.target.value)}
@@ -455,23 +436,21 @@ export function ServiceBookingForm({
                   className="w-full px-3.5 py-2 text-sm bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 text-slate-900 dark:text-white"
                   required
                 />
-              </div>
-            ) : (
+            </div>
+
+            {/* Custom Service Type if Other was selected (Matching Diagram) */}
+            {customServiceType && (
               <div>
                 <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
                   Device Type (Laptop/Desktop/CPU/Printer) *
                 </label>
-                <select
+                <input
+                  type="text"
                   value={deviceType}
                   onChange={(e) => setDeviceType(e.target.value)}
+                  placeholder="Enter device type"
                   className="w-full px-3.5 py-2 text-sm bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 text-slate-900 dark:text-white"
-                >
-                  {DEVICE_TYPES.map((d) => (
-                    <option key={d} value={d}>
-                      {d}
-                    </option>
-                  ))}
-                </select>
+                />
               </div>
             )}
 
@@ -480,17 +459,13 @@ export function ServiceBookingForm({
               <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
                 Company / Brand *
               </label>
-              <select
+              <input
+                type="text"
                 value={companyBrand}
                 onChange={(e) => setCompanyBrand(e.target.value)}
+                placeholder="Enter company or brand"
                 className="w-full px-3.5 py-2 text-sm bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 text-slate-900 dark:text-white"
-              >
-                {BRANDS.map((b) => (
-                  <option key={b} value={b}>
-                    {b}
-                  </option>
-                ))}
-              </select>
+              />
             </div>
 
             {/* Model */}

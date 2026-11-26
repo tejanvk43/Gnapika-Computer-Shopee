@@ -3,6 +3,8 @@ import { NextResponse } from 'next/server'
 import { supabaseService } from '@/lib/supabase'
 import { getCurrentUserContext } from '@/lib/auth'
 
+export const dynamic = 'force-dynamic'
+
 export async function GET() {
   try {
     const context = await getCurrentUserContext()
