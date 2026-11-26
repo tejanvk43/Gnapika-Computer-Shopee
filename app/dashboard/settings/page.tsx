@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { getCurrentUserContext } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import { supabaseService } from '@/lib/supabase'
@@ -85,9 +86,20 @@ export default async function SettingsPage() {
           </div>
         </div>
 
-        {/* Users */}
+        {/* Users & Staff Management */}
         <div className="lg:col-span-2 bg-card p-6 rounded-lg shadow">
-          <h2 className="text-xl font-semibold mb-4">Users & Permissions</h2>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+            <div>
+              <h2 className="text-xl font-semibold">Users &amp; Staff Permissions</h2>
+              <p className="text-xs text-muted-foreground mt-0.5">Control staff logins and module access</p>
+            </div>
+            <Link
+              href="/dashboard/staff"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary hover:bg-primary/90 text-white text-xs font-bold transition shadow-sm"
+            >
+              <span>Manage Staff &amp; Module Access &rarr;</span>
+            </Link>
+          </div>
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>

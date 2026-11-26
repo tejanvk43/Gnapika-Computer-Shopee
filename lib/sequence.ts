@@ -131,3 +131,64 @@ export async function generateNextServiceInvoiceNumber(organizationId: string): 
   }
 }
 
+/**
+ * Generates the next sequential quotation number in the format:
+ * GCS/<Financial Year>/<Sequential Number>
+ * Example: GCS/26-27/112, GCS/26-27/113 ...
+ */
+export async function generateNextQuotationNumber(organizationId: string): Promise<string> {
+  const fy = getFinancialYear()
+  const prefix = `GCS/${fy}/`
+
+  try {
+    // 1. Try querying quotations table if present
+    const { data: rows, error } = await supabaseService
+      .from('quotations')
+      .select('quotation_number')
+      .eq('organization_id', organizationId)
+      .ilike('quotation_number', `${prefix}%`)
+
+    let maxSeq = 111 // Default start at 111 so next is 112 as in reference mockup
+    if (!error && rows && rows.length > 0) {
+      for (const r of rows) {
+        const qNum = String(r.quotation_number || '').trim()
+        const parts = qNum.split('/')
+        if (parts.length >= 2) {
+          const num = parseInt(parts[parts.length - 1], 10)
+          if (!isNaN(num) && num > maxSeq) {
+            maxSeq = num
+          }
+        }
+      }
+    } else {
+      // Check audit_logs fallback
+      const { data: auditRows } = await supabaseService
+        .from('audit_logs')
+        .select('details')
+        .eq('organization_id', organizationId)
+        .eq('action', 'QUOTATION_SAVE')
+
+      if (auditRows && auditRows.length > 0) {
+        for (const row of auditRows) {
+          const qNum = String(row.details?.quotation_number || '').trim()
+          if (qNum.startsWith(prefix)) {
+            const parts = qNum.split('/')
+            if (parts.length >= 2) {
+              const num = parseInt(parts[parts.length - 1], 10)
+              if (!isNaN(num) && num > maxSeq) {
+                maxSeq = num
+              }
+            }
+          }
+        }
+      }
+    }
+
+    const nextSeq = maxSeq + 1
+    return `${prefix}${nextSeq}`
+  } catch (err) {
+    console.warn('Sequence generation fallback for quotation:', err)
+    return `${prefix}112`
+  }
+}
+

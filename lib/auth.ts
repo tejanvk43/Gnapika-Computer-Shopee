@@ -139,7 +139,27 @@ export async function getCurrentUserContext() {
     }
   }
 
-  const result = { user, organization_id: orgId }
+  // 4. Resolve Membership Role & Permissions
+  const { data: membership } = await supabaseService
+    .from('organization_memberships')
+    .select('role')
+    .eq('user_profile_id', user.id)
+    .eq('organization_id', orgId)
+    .maybeSingle()
+
+  const isOwner = membership?.role === 'Owner' || user.user_metadata?.role === 'Owner' || !user.user_metadata?.role
+  const role: string = isOwner ? 'Owner' : (user.user_metadata?.role || 'Staff')
+  const permissions: string[] = isOwner
+    ? ['*']
+    : (Array.isArray(user.user_metadata?.permissions) ? user.user_metadata.permissions : ['billing', 'services'])
+
+  const result = {
+    user,
+    organization_id: orgId,
+    role,
+    isOwner,
+    permissions,
+  }
 
   // Cache for 3 minutes so repeated button clicks / API calls execute instantly in 0ms
   userContextCache.set(user.id, {
@@ -150,7 +170,18 @@ export async function getCurrentUserContext() {
   return result
 }
 
+/**
+ * Checks if a user's permissions grant access to a specific module.
+ * Owners with '*' have access to everything.
+ */
+export function hasPermission(permissions: string[] | undefined, required: string): boolean {
+  if (!permissions || permissions.length === 0) return false
+  if (permissions.includes('*') || permissions.includes('all')) return true
+  return permissions.includes(required)
+}
+
 export const auth = {
   getSession,
   getCurrentUserContext,
+  hasPermission,
 }

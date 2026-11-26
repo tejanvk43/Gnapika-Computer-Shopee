@@ -1,4 +1,4 @@
-import { getCurrentUserContext } from '@/lib/auth'
+import { getCurrentUserContext, hasPermission } from '@/lib/auth'
 import { redirect, notFound } from 'next/navigation'
 import { supabaseService } from '@/lib/supabase'
 import Link from 'next/link'
@@ -29,6 +29,13 @@ export default async function ServiceDetailPage({
 }) {
   const context = await getCurrentUserContext()
   if (!context) redirect('/auth/login')
+
+  if (!context.isOwner && !hasPermission(context.permissions, 'services')) {
+    if (hasPermission(context.permissions, 'billing')) {
+      redirect('/dashboard/billing')
+    }
+    redirect('/dashboard')
+  }
 
   const { data: service, error } = await supabaseService
     .from('service_jobs')

@@ -1,5 +1,4 @@
-// app/dashboard/billing/page.tsx
-import { getCurrentUserContext } from '@/lib/auth'
+import { getCurrentUserContext, hasPermission } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import { supabaseService } from '@/lib/supabase'
 import { BillingDashboardView } from '@/components/billing/BillingDashboardView'
@@ -9,6 +8,13 @@ export const dynamic = 'force-dynamic'
 async function getBillingData() {
   const context = await getCurrentUserContext()
   if (!context) redirect('/auth/login')
+
+  if (!context.isOwner && !hasPermission(context.permissions, 'billing')) {
+    if (hasPermission(context.permissions, 'services')) {
+      redirect('/dashboard/services')
+    }
+    redirect('/dashboard')
+  }
 
   const { data: invoices, error } = await supabaseService
     .from('invoices')

@@ -1,5 +1,5 @@
 // app/dashboard/page.tsx
-import { getCurrentUserContext } from '@/lib/auth'
+import { getCurrentUserContext, hasPermission } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import { supabaseService } from '@/lib/supabase'
 import Link from 'next/link'
@@ -20,6 +20,17 @@ import { LiveCustomerSearch } from '@/components/dashboard/LiveCustomerSearch'
 async function getDashboardData() {
   const context = await getCurrentUserContext()
   if (!context) redirect('/auth/login')
+
+  // Auto-route single-permission staff to their dedicated workspace
+  if (!context.isOwner) {
+    const hasBilling = hasPermission(context.permissions, 'billing')
+    const hasServices = hasPermission(context.permissions, 'services')
+    if (hasBilling && !hasServices) {
+      redirect('/dashboard/billing')
+    } else if (hasServices && !hasBilling) {
+      redirect('/dashboard/services')
+    }
+  }
 
   const orgId = context.organization_id
 

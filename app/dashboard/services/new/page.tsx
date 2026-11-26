@@ -1,5 +1,5 @@
 // app/dashboard/services/new/page.tsx
-import { getCurrentUserContext } from '@/lib/auth'
+import { getCurrentUserContext, hasPermission } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import { ServiceBookingForm } from '@/components/services/ServiceBookingForm'
 import Link from 'next/link'
@@ -12,6 +12,13 @@ export default async function NewServiceJobPage({
 }) {
   const context = await getCurrentUserContext()
   if (!context) redirect('/auth/login')
+
+  if (!context.isOwner && !hasPermission(context.permissions, 'services')) {
+    if (hasPermission(context.permissions, 'billing')) {
+      redirect('/dashboard/billing')
+    }
+    redirect('/dashboard')
+  }
 
   return (
     <div className="space-y-6">

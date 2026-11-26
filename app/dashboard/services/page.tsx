@@ -1,4 +1,4 @@
-import { getCurrentUserContext } from '@/lib/auth'
+import { getCurrentUserContext, hasPermission } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import { supabaseService } from '@/lib/supabase'
 import Link from 'next/link'
@@ -8,6 +8,13 @@ import { extractAccessories, cleanProblemDescription } from '@/lib/serviceHelper
 async function getServicesData() {
   const context = await getCurrentUserContext()
   if (!context) redirect('/auth/login')
+
+  if (!context.isOwner && !hasPermission(context.permissions, 'services')) {
+    if (hasPermission(context.permissions, 'billing')) {
+      redirect('/dashboard/billing')
+    }
+    redirect('/dashboard')
+  }
 
   const { data: services, error } = await supabaseService
     .from('service_jobs')
