@@ -2,6 +2,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseService } from '@/lib/supabase'
 import { getCurrentUserContext } from '@/lib/auth'
+import { generateNextInvoiceNumber } from '@/lib/sequence'
 
 export async function POST(request: Request) {
   try {
@@ -11,16 +12,21 @@ export async function POST(request: Request) {
     const body = await request.json()
     const {
       customer,
-      items,
+      items = [],
       subtotal,
       gst_amount,
       grand_total,
+      service_charge,
+      service_charge_description,
       payment_method,
       branch_id,
     } = body
 
-    if (!items || items.length === 0) {
-      return NextResponse.json({ error: "At least one item is required in the bill." }, { status: 400 })
+    const numServiceCharge = Math.max(0, parseFloat(service_charge) || 0)
+    const serviceChargeDesc = (service_charge_description || 'Service Charge').trim()
+
+    if ((!items || items.length === 0) && numServiceCharge <= 0) {
+      return NextResponse.json({ error: "At least one product item or service charge is required in the bill." }, { status: 400 })
     }
 
     // 1. Resolve or Create Customer
@@ -93,20 +99,28 @@ export async function POST(request: Request) {
       activeBranchId = newBranch?.id
     }
 
-    // 3. Generate unique Invoice Number
-    const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '')
-    const randSuffix = Math.floor(1000 + Math.random() * 9000)
-    const invoiceNumber = `INV-${dateStr}-${randSuffix}`
+    // 3. Generate sequential Invoice Number (Format: GCS<FY>/<Sequence>, e.g. GCS26-27/1)
+    const invoiceNumber = await generateNextInvoiceNumber(context.organization_id)
 
     const finalGrandTotal = parseFloat(grand_total) || 0
     const paymentMethod = payment_method || 'Cash'
 
+    // Compute initial amount paid and outstanding balance due
+    const finalAmountPaid = body.amount_paid !== undefined
+      ? Math.min(finalGrandTotal, Math.max(0, parseFloat(body.amount_paid) || 0))
+      : finalGrandTotal
+    const balanceDue = Math.max(0, Math.round((finalGrandTotal - finalAmountPaid) * 100) / 100)
+
     // 4. Insert Invoice
     const invoiceSnapshot = {
       items,
+      service_charge: numServiceCharge,
+      service_charge_description: serviceChargeDesc,
       subtotal,
       gst_amount,
       grand_total: finalGrandTotal,
+      amount_paid: finalAmountPaid,
+      balance_due: balanceDue,
       customer,
       payment_method: paymentMethod,
     }
@@ -120,8 +134,8 @@ export async function POST(request: Request) {
         invoice_number: invoiceNumber,
         invoice_date: new Date().toISOString(),
         total_grand_amount: finalGrandTotal,
-        amount_paid: finalGrandTotal,
-        balance_due: 0.00,
+        amount_paid: finalAmountPaid,
+        balance_due: balanceDue,
         payment_method: paymentMethod,
         invoice_snapshot: invoiceSnapshot,
         created_by_user_id: context.user?.id || null,
@@ -134,16 +148,34 @@ export async function POST(request: Request) {
 
     if (invoiceError) throw invoiceError
 
+    // Record initial payment entry in payments table if any amount was paid
+    if (finalAmountPaid > 0) {
+      try {
+        await supabaseService.from('payments').insert([{
+          organization_id: context.organization_id,
+          invoice_id: newInvoice.id,
+          payment_date: new Date().toISOString(),
+          amount: finalAmountPaid,
+          payment_method: paymentMethod,
+          transaction_ref: body.transaction_ref || 'Initial Payment at Bill Generation',
+        }])
+      } catch (payErr) {
+        console.warn("Notice: Initial payment logging:", payErr)
+      }
+    }
+
     // 5. Insert Invoice Items & Automatically Deduct Branch Stock
     if (items && items.length > 0) {
       const invoiceItemInserts = items.map((it: any) => {
         const qty = parseFloat(it.quantity) || 1
         const unitPrice = parseFloat(it.unit_price) || 0
         const discount = parseFloat(it.discount) || 0
-        const taxable = Math.max(0, (unitPrice * qty) - discount)
+        const gross = Math.max(0, (unitPrice * qty) - discount)
         const gstRate = 18.00
-        const itemGst = (taxable * gstRate) / 100
-        const lineTotalWithTax = taxable + itemGst
+        const taxFactor = gstRate / (100 + gstRate)
+        const itemGst = Math.round(gross * taxFactor * 100) / 100
+        const taxable = Math.round((gross - itemGst) * 100) / 100
+        const lineTotal = gross
 
         return {
           invoice_id: newInvoice.id,
@@ -153,7 +185,7 @@ export async function POST(request: Request) {
           discount_applied: discount,
           gst_rate_snapshot: gstRate,
           taxable_amount: taxable,
-          line_total: lineTotalWithTax,
+          line_total: lineTotal,
         }
       })
 
@@ -179,20 +211,21 @@ export async function POST(request: Request) {
 
           if (existingBp) {
             const currentStockNum = parseFloat(existingBp.current_stock) || 0
-            const updatedStock = Math.max(0, currentStockNum - qtySold)
+            // Allow stock to go negative if billed beyond existing stock
+            const updatedStock = currentStockNum - qtySold
 
             await supabaseService
               .from('branch_products')
               .update({ current_stock: updatedStock })
               .eq('id', existingBp.id)
           } else {
-            // First time tracking for this product at this branch
+            // First time tracking for this product at this branch - set negative stock
             await supabaseService
               .from('branch_products')
               .insert([{
                 branch_id: activeBranchId,
                 product_id: it.product_id,
-                current_stock: 0,
+                current_stock: -qtySold,
               }])
           }
 

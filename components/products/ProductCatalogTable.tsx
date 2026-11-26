@@ -223,7 +223,10 @@ export function ProductCatalogTable({
     if (!q) return true
     const matchName = p.name?.toLowerCase().includes(q)
     const matchSku = p.sku?.toLowerCase().includes(q)
-    const matchBarcode = p.product_barcodes?.some((b) => b.barcode_value.includes(q))
+    const barcodes = Array.isArray(p.product_barcodes)
+      ? p.product_barcodes
+      : p.product_barcodes ? [p.product_barcodes] : []
+    const matchBarcode = barcodes.some((b: any) => b?.barcode_value?.toLowerCase().includes(q))
     return matchName || matchSku || matchBarcode
   })
 
@@ -278,7 +281,8 @@ export function ProductCatalogTable({
               ) : (
                 filteredProducts.map((product) => {
                   const stock = getProductStock(product)
-                  const isOutOfStock = stock <= 0
+                  const isNegativeStock = stock < 0
+                  const isOutOfStock = stock === 0
                   const isLowStock = stock > 0 && stock <= 10
                   const primaryBarcode = product.product_barcodes?.[0]?.barcode_value
 
@@ -305,8 +309,13 @@ export function ProductCatalogTable({
                         </span>
                       </td>
                       <td className="p-4 text-center">
-                        {isOutOfStock ? (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-rose-100 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300">
+                        {isNegativeStock ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300 border border-rose-300 dark:border-rose-800">
+                            <AlertTriangle className="w-3 h-3 text-rose-600" />
+                            {stock} Units (Negative)
+                          </span>
+                        ) : isOutOfStock ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300">
                             0 Units (Out of Stock)
                           </span>
                         ) : isLowStock ? (

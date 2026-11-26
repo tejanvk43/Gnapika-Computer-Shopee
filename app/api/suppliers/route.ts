@@ -5,16 +5,24 @@ import { getCurrentUserContext } from '@/lib/auth'
 
 export const dynamic = 'force-dynamic'
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const context = await getCurrentUserContext()
     if (!context) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
-    const { data: suppliers, error } = await supabaseService
+    const { searchParams } = new URL(request.url)
+    const q = (searchParams.get('q') || searchParams.get('query') || '').trim()
+
+    let query = supabaseService
       .from('suppliers')
       .select('*')
       .eq('organization_id', context.organization_id)
-      .order('name', { ascending: true })
+
+    if (q) {
+      query = query.ilike('name', `%${q}%`)
+    }
+
+    const { data: suppliers, error } = await query.order('name', { ascending: true })
 
     if (error) throw error
 

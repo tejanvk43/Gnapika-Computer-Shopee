@@ -1,7 +1,7 @@
-// app/dashboard/settings/page.tsx
 import { getCurrentUserContext } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import { supabaseService } from '@/lib/supabase'
+import { getFinancialYear } from '@/lib/formatters'
 
 export default async function SettingsPage() {
   const context = await getCurrentUserContext()
@@ -136,9 +136,15 @@ export default async function SettingsPage() {
         <div className="bg-card p-6 rounded-lg shadow">
           <h2 className="text-xl font-semibold mb-4">Invoice Settings</h2>
           <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium">Invoice Prefix</label>
-              <input type="text" value="INV-" className="mt-1 w-full rounded-md border px-3 py-2" disabled />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium">Invoice Prefix (FY {getFinancialYear()})</label>
+                <input type="text" value={`GCS${getFinancialYear()}/`} className="mt-1 w-full rounded-md border px-3 py-2 font-mono text-sm" disabled />
+              </div>
+              <div>
+                <label className="block text-sm font-medium">Service Job Prefix (FY {getFinancialYear()})</label>
+                <input type="text" value={`GCS-SER${getFinancialYear()}/`} className="mt-1 w-full rounded-md border px-3 py-2 font-mono text-sm" disabled />
+              </div>
             </div>
             <div>
               <label className="block text-sm font-medium">Terms & Conditions</label>

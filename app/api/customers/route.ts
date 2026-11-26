@@ -18,15 +18,14 @@ export async function GET(request: Request) {
       .from('customers')
       .select(`
         *,
-        invoices ( id, invoice_number, invoice_date, total_grand_amount ),
+        invoices ( id, invoice_number, invoice_date, total_grand_amount, amount_paid, balance_due ),
         service_jobs ( id, service_ref_number, created_at, status, device_type )
       `)
       .eq('organization_id', context.organization_id)
 
-    if (phone) {
-      dbQuery = dbQuery.or(`phone_number.eq.${phone},alt_phone_number.eq.${phone}`)
-    } else if (query) {
-      dbQuery = dbQuery.or(`customer_name.ilike.%${query}%,phone_number.ilike.%${query}%,alt_phone_number.ilike.%${query}%`)
+    const term = (query || phone || '').trim()
+    if (term) {
+      dbQuery = dbQuery.or(`customer_name.ilike.%${term}%,phone_number.ilike.%${term}%,alt_phone_number.ilike.%${term}%`)
     }
 
     const { data: customers, error } = await dbQuery

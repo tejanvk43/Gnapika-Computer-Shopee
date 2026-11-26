@@ -15,7 +15,13 @@ import {
   MapPin,
   FileText,
   ExternalLink,
+  AlertTriangle,
+  CheckCircle2,
+  Clock,
+  PlusCircle,
 } from 'lucide-react'
+import { formatCurrency } from '@/lib/formatters'
+import { PaymentCollectionModal } from '@/components/billing/PaymentCollectionModal'
 
 interface CustomerDetailProps {
   customer: {
@@ -33,13 +39,30 @@ interface CustomerDetailProps {
 }
 
 export function CustomerDetailView({ customer, invoices, services }: CustomerDetailProps) {
+  const [customerInvoices, setCustomerInvoices] = useState<any[]>(invoices)
+  const [selectedInvoice, setSelectedInvoice] = useState<any | null>(null)
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false)
   const [searchId, setSearchId] = useState('')
   const [categoryFilter, setCategoryFilter] = useState<'Both' | 'Bills & Sales' | 'Services'>('Both')
   const [fromDate, setFromDate] = useState('')
   const [toDate, setToDate] = useState('')
 
+  // Calculate customer financial totals
+  const totalBilled = customerInvoices.reduce(
+    (sum, inv) => sum + (parseFloat(inv.total_grand_amount || '0') || 0),
+    0
+  )
+  const totalPaid = customerInvoices.reduce(
+    (sum, inv) => sum + (parseFloat(inv.amount_paid || '0') || 0),
+    0
+  )
+  const totalDue = customerInvoices.reduce(
+    (sum, inv) => sum + (parseFloat(inv.balance_due || '0') || 0),
+    0
+  )
+
   // Filter Invoices
-  const filteredInvoices = invoices.filter((inv) => {
+  const filteredInvoices = customerInvoices.filter((inv) => {
     if (categoryFilter === 'Services') return false
 
     if (searchId) {
@@ -143,14 +166,24 @@ export function CustomerDetailView({ customer, invoices, services }: CustomerDet
             </div>
           </div>
 
-          <div className="flex gap-4 border-t md:border-t-0 md:border-l border-slate-100 dark:border-slate-800 pt-4 md:pt-0 md:pl-6 text-center">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 border-t md:border-t-0 md:border-l border-slate-100 dark:border-slate-800 pt-4 md:pt-0 md:pl-6 text-center">
             <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl">
-              <span className="text-xs text-slate-500 font-medium">Invoices</span>
-              <p className="text-xl font-bold text-slate-900 dark:text-white mt-0.5">{invoices.length}</p>
+              <span className="text-[11px] text-slate-500 font-semibold uppercase">Invoices</span>
+              <p className="text-base font-bold text-slate-900 dark:text-white mt-0.5">{customerInvoices.length}</p>
             </div>
             <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl">
-              <span className="text-xs text-slate-500 font-medium">Services</span>
-              <p className="text-xl font-bold text-slate-900 dark:text-white mt-0.5">{services.length}</p>
+              <span className="text-[11px] text-slate-500 font-semibold uppercase">Total Billed</span>
+              <p className="text-base font-bold font-mono text-slate-900 dark:text-white mt-0.5">{formatCurrency(totalBilled)}</p>
+            </div>
+            <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl">
+              <span className="text-[11px] text-emerald-600 font-semibold uppercase">Total Paid</span>
+              <p className="text-base font-bold font-mono text-emerald-600 mt-0.5">{formatCurrency(totalPaid)}</p>
+            </div>
+            <div className={`p-3 rounded-xl ${totalDue > 0 ? 'bg-rose-50 dark:bg-rose-950/40 border border-rose-300 dark:border-rose-900/60' : 'bg-slate-50 dark:bg-slate-800/50'}`}>
+              <span className={`text-[11px] font-bold uppercase ${totalDue > 0 ? 'text-rose-700 dark:text-rose-400' : 'text-slate-500'}`}>Balance Due</span>
+              <p className={`text-base font-black font-mono mt-0.5 ${totalDue > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600'}`}>
+                {totalDue > 0 ? formatCurrency(totalDue) : '₹0.00'}
+              </p>
             </div>
           </div>
         </div>
@@ -228,15 +261,17 @@ export function CustomerDetailView({ customer, invoices, services }: CustomerDet
                   <th className="p-3">Bill ID</th>
                   <th className="p-3">Bill Date</th>
                   <th className="p-3">Product Name(s)</th>
-                  <th className="p-3 text-right">Cost</th>
-                  <th className="p-3">Warranty</th>
+                  <th className="p-3 text-right">Total</th>
+                  <th className="p-3 text-right">Paid</th>
+                  <th className="p-3 text-right">Balance Due</th>
+                  <th className="p-3 text-center">Status</th>
                   <th className="p-3 pr-4 text-right">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-300">
                 {filteredInvoices.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="p-6 text-center text-slate-400">
+                    <td colSpan={9} className="p-6 text-center text-slate-400">
                       No billing records found matching criteria.
                     </td>
                   </tr>
@@ -245,6 +280,14 @@ export function CustomerDetailView({ customer, invoices, services }: CustomerDet
                     const productNames =
                       inv.invoice_items?.map((it: any) => it.products?.name).filter(Boolean).join(', ') ||
                       'General Items'
+                    const grandTotal = parseFloat(inv.total_grand_amount || '0')
+                    const paid = parseFloat(inv.amount_paid !== undefined ? inv.amount_paid : grandTotal)
+                    const balanceDue = parseFloat(
+                      inv.balance_due !== undefined ? inv.balance_due : Math.max(0, grandTotal - paid).toString()
+                    )
+                    const isPaid = balanceDue <= 0
+                    const isPartial = !isPaid && paid > 0
+
                     return (
                       <tr key={inv.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition">
                         <td className="p-3 pl-4 font-mono text-slate-400">{idx + 1}</td>
@@ -252,17 +295,67 @@ export function CustomerDetailView({ customer, invoices, services }: CustomerDet
                         <td className="p-3">{new Date(inv.invoice_date).toLocaleDateString()}</td>
                         <td className="p-3 max-w-xs truncate">{productNames}</td>
                         <td className="p-3 text-right font-mono font-bold text-slate-900 dark:text-white">
-                          ₹{parseFloat(inv.total_grand_amount).toFixed(2)}
+                          {formatCurrency(grandTotal)}
                         </td>
-                        <td className="p-3 text-slate-500">1 Year Standard</td>
+                        <td className="p-3 text-right font-mono font-semibold text-emerald-600">
+                          {formatCurrency(paid)}
+                        </td>
+                        <td className="p-3 text-right font-mono font-bold">
+                          {balanceDue > 0 ? (
+                            <span className="text-rose-600 dark:text-rose-400 font-black">
+                              {formatCurrency(balanceDue)}
+                            </span>
+                          ) : (
+                            <span className="text-slate-400">₹0.00</span>
+                          )}
+                        </td>
+                        <td className="p-3 text-center">
+                          {isPaid ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300">
+                              <CheckCircle2 className="w-3 h-3" />
+                              Paid
+                            </span>
+                          ) : isPartial ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
+                              <Clock className="w-3 h-3" />
+                              Partial Due
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-rose-100 text-rose-800 dark:bg-rose-950/40 dark:text-rose-300">
+                              <AlertTriangle className="w-3 h-3" />
+                              Unpaid
+                            </span>
+                          )}
+                        </td>
                         <td className="p-3 pr-4 text-right">
-                          <Link
-                            href={`/dashboard/billing/${inv.id}`}
-                            className="inline-flex items-center gap-1 text-primary hover:underline font-medium"
-                          >
-                            <span>View Bill</span>
-                            <ExternalLink className="w-3 h-3" />
-                          </Link>
+                          <div className="flex items-center justify-end gap-2">
+                            {balanceDue > 0 && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSelectedInvoice({
+                                    ...inv,
+                                    customers: {
+                                      customer_name: customer.customer_name,
+                                      phone_number: customer.phone_number,
+                                    },
+                                  })
+                                  setIsPaymentModalOpen(true)
+                                }}
+                                className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-bold bg-emerald-600 hover:bg-emerald-700 text-white transition shadow-xs cursor-pointer"
+                              >
+                                <PlusCircle className="w-3 h-3" />
+                                <span>Collect</span>
+                              </button>
+                            )}
+                            <Link
+                              href={`/dashboard/billing/${inv.id}`}
+                              className="inline-flex items-center gap-1 text-primary hover:underline font-medium"
+                            >
+                              <span>View</span>
+                              <ExternalLink className="w-3 h-3" />
+                            </Link>
+                          </div>
                         </td>
                       </tr>
                     )
@@ -349,6 +442,21 @@ export function CustomerDetailView({ customer, invoices, services }: CustomerDet
           </div>
         </div>
       )}
+
+      {/* Payment Collection Modal */}
+      <PaymentCollectionModal
+        invoice={selectedInvoice}
+        isOpen={isPaymentModalOpen}
+        onClose={() => {
+          setIsPaymentModalOpen(false)
+          setSelectedInvoice(null)
+        }}
+        onPaymentSuccess={(updated) => {
+          setCustomerInvoices((prev) =>
+            prev.map((item) => (item.id === updated.id ? { ...item, ...updated } : item))
+          )
+        }}
+      />
     </div>
   )
 }

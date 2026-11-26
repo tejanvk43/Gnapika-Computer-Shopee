@@ -2,6 +2,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseService } from '@/lib/supabase'
 import { getCurrentUserContext } from '@/lib/auth'
+import { generateNextServiceRefNumber } from '@/lib/sequence'
 
 export const dynamic = 'force-dynamic'
 
@@ -115,10 +116,8 @@ export async function POST(request: Request) {
       activeBranchId = newBranch?.id
     }
 
-    // Generate unique service reference number
-    const dateCode = new Date().toISOString().slice(2, 10).replace(/-/g, '')
-    const randSuffix = Math.floor(100 + Math.random() * 900)
-    const serviceRefNumber = `SRV-${dateCode}-${randSuffix}`
+    // Generate sequential service reference number (Format: GCS-SER<FY>/<Sequence>, e.g. GCS-SER26-27/1)
+    const serviceRefNumber = await generateNextServiceRefNumber(context.organization_id)
 
     const { data: newService, error } = await supabaseService
       .from('service_jobs')

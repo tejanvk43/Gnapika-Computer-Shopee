@@ -5,7 +5,11 @@ import { useEffect, useRef, useState } from 'react'
 import { BrowserMultiFormatReader } from '@zxing/browser'
 import { toast } from 'sonner'
 
-export function BarcodeScanner() {
+export function BarcodeScanner({
+  onDetected,
+}: {
+  onDetected?: (code: string) => void
+} = {}) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const [scanning, setScanning] = useState(false)
   const [result, setResult] = useState<string | null>(null)
@@ -36,7 +40,7 @@ export function BarcodeScanner() {
             stream.getTracks().forEach(track => track.stop())
             setScanning(false)
             toast.success(`Scanned Barcode: ${text}`)
-            // Emit code to parent component (e.g., POS cart) via prop/callback
+            onDetected?.(text)
           }
         })
       } catch (err) {

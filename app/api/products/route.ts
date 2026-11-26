@@ -14,7 +14,68 @@ export async function GET(request: Request) {
     const q = searchParams.get('q') || searchParams.get('query') || ''
     const barcode = searchParams.get('barcode') || ''
 
-    let query = supabaseService
+    if (barcode) {
+      const { data: bMatch } = await supabaseService
+        .from('product_barcodes')
+        .select(`
+          barcode_value,
+          products (
+            *,
+            product_categories ( name ),
+            product_barcodes ( barcode_value, barcode_type )
+          )
+        `)
+        .eq('barcode_value', barcode.trim())
+        .limit(10)
+
+      const bProds = (bMatch || [])
+        .map((b: any) => b.products)
+        .filter((p: any) => p && p.organization_id === context.organization_id)
+
+      if (bProds.length > 0) {
+        return NextResponse.json(bProds)
+      }
+    }
+
+    if (q) {
+      const cleanQ = q.trim()
+      const [nameRes, barcodeRes] = await Promise.all([
+        supabaseService
+          .from('products')
+          .select(`
+            *,
+            product_categories ( name ),
+            product_barcodes ( barcode_value, barcode_type )
+          `)
+          .eq('organization_id', context.organization_id)
+          .or(`name.ilike.%${cleanQ}%,sku.ilike.%${cleanQ}%`)
+          .limit(30),
+        supabaseService
+          .from('product_barcodes')
+          .select(`
+            barcode_value,
+            products (
+              *,
+              product_categories ( name ),
+              product_barcodes ( barcode_value, barcode_type )
+            )
+          `)
+          .ilike('barcode_value', `%${cleanQ}%`)
+          .limit(20)
+      ])
+
+      const barcodeProducts = (barcodeRes.data || [])
+        .map((b: any) => b.products)
+        .filter((p: any) => p && p.organization_id === context.organization_id)
+
+      const merged = new Map<string, any>()
+      for (const p of (nameRes.data || [])) merged.set(p.id, p)
+      for (const p of barcodeProducts) merged.set(p.id, p)
+
+      return NextResponse.json(Array.from(merged.values()))
+    }
+
+    const { data: products, error } = await supabaseService
       .from('products')
       .select(`
         *,
@@ -22,22 +83,10 @@ export async function GET(request: Request) {
         product_barcodes ( barcode_value, barcode_type )
       `)
       .eq('organization_id', context.organization_id)
-
-    if (q) {
-      query = query.or(`name.ilike.%${q}%,sku.ilike.%${q}%`)
-    }
-
-    const { data: products, error } = await query.order('created_at', { ascending: false })
+      .order('created_at', { ascending: false })
+      .limit(50)
 
     if (error) throw error
-
-    if (barcode) {
-      const filtered = (products || []).filter((p: any) =>
-        p.product_barcodes?.some((b: any) => b.barcode_value === barcode)
-      )
-      return NextResponse.json(filtered)
-    }
-
     return NextResponse.json(products || [])
   } catch (error: any) {
     return NextResponse.json({ error: error?.message || "Internal Server Error" }, { status: 500 })

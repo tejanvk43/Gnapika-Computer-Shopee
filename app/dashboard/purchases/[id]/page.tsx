@@ -4,6 +4,8 @@ import { redirect, notFound } from 'next/navigation'
 import { supabaseService } from '@/lib/supabase'
 import { PurchaseInvoiceDetailView } from '@/components/purchases/PurchaseInvoiceDetailView'
 
+export const dynamic = 'force-dynamic'
+
 async function getPurchaseInvoice(id: string) {
   const context = await getCurrentUserContext()
   if (!context) redirect('/auth/login')

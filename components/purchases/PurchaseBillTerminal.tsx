@@ -1,7 +1,7 @@
 // components/purchases/PurchaseBillTerminal.tsx
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import {
   Building2,
   Calendar,
@@ -42,6 +42,8 @@ export interface ExistingProductItem {
   name: string
   sku: string
   description?: string | null
+  price?: number
+  cost_price?: number
 }
 
 export interface PurchaseBillItem {
@@ -72,49 +74,43 @@ export function PurchaseBillTerminal({
 }) {
   // --- Suppliers State ---
   const [suppliers, setSuppliers] = useState<SupplierItem[]>(initialSuppliers)
-  const [supplierSearchQuery, setSupplierSearchQuery] = useState('')
   const [filteredSuppliers, setFilteredSuppliers] = useState<SupplierItem[]>([])
   const [showSupplierDropdown, setShowSupplierDropdown] = useState(false)
   const [selectedSupplierId, setSelectedSupplierId] = useState('')
 
+  // Company Details Form (Clean empty defaults)
   const [companyName, setCompanyName] = useState('')
-  const [invoiceNumber, setInvoiceNumber] = useState(() => {
-    return `PUR-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`
-  })
-  const [invoiceDate, setInvoiceDate] = useState(() => {
-    return new Date().toISOString().split('T')[0]
-  })
+  const [invoiceNumber, setInvoiceNumber] = useState('')
+  const [invoiceDate, setInvoiceDate] = useState('')
   const [gstNo, setGstNo] = useState('')
   const [phoneNumber, setPhoneNumber] = useState('')
   const [address, setAddress] = useState('')
 
   // --- Products State ---
   const [products, setProducts] = useState<ExistingProductItem[]>(initialProducts)
-  const [productSearchQuery, setProductSearchQuery] = useState('')
   const [filteredProducts, setFilteredProducts] = useState<ExistingProductItem[]>([])
   const [showProductDropdown, setShowProductDropdown] = useState(false)
 
-  // Current Product Entry Form State
+  // Current Product Entry Form State (Clean empty defaults)
   const [activeProductId, setActiveProductId] = useState('')
   const [productName, setProductName] = useState('')
-  const [hsnCode, setHsnCode] = useState('8471')
+  const [hsnCode, setHsnCode] = useState('')
   const [quantity, setQuantity] = useState<number>(1)
   const [rate, setRate] = useState<number>(0)
   const [cgstRate, setCgstRate] = useState<number>(9)
   const [sgstRate, setSgstRate] = useState<number>(9)
   const [igstRate, setIgstRate] = useState<number>(0)
-  const [taxableAmount, setTaxableAmount] = useState<number>(0)
 
   // Current Product Scanned Barcodes
   const [scannedSerials, setScannedSerials] = useState<string[]>([])
   const [barcodeInput, setBarcodeInput] = useState('')
-  const [isCheckingSerial, setIsCheckingSerial] = useState(false)
   const [scannerAlert, setScannerAlert] = useState<{
     type: 'success' | 'error' | null
     message: string
   }>({ type: null, message: '' })
 
   const barcodeInputRef = useRef<HTMLInputElement>(null)
+  const productNameInputRef = useRef<HTMLInputElement>(null)
 
   // --- Bill Cart Items ---
   const [billItems, setBillItems] = useState<PurchaseBillItem[]>([])
@@ -151,46 +147,72 @@ export function PurchaseBillTerminal({
     } catch {}
   }
 
-  // Auto-calculate Gross and Taxes
+  // --- Calculation: Inclusive GST Pricing Model ---
+  // rate => taxable + cgst + sgst + igst
+  // gross = rate * qty
+  // total amount is same as gross
   const grossAmount = Math.max(0, quantity * rate)
-  const calculatedTaxable = taxableAmount > 0 ? taxableAmount : grossAmount
-  const cgstAmount = igstRate > 0 ? 0 : (calculatedTaxable * cgstRate) / 100
-  const sgstAmount = igstRate > 0 ? 0 : (calculatedTaxable * sgstRate) / 100
-  const igstAmount = igstRate > 0 ? (calculatedTaxable * igstRate) / 100 : 0
-  const totalAmount = calculatedTaxable + cgstAmount + sgstAmount + igstAmount
+  const totalTaxRate = igstRate > 0 ? igstRate : (cgstRate + sgstRate)
 
-  // Keep taxableAmount in sync when quantity or rate changes if user hasn't manually edited it
-  useEffect(() => {
-    setTaxableAmount(grossAmount)
-  }, [grossAmount])
+  let calculatedTaxable = grossAmount
+  let cgstAmount = 0
+  let sgstAmount = 0
+  let igstAmount = 0
 
-  // Company Name Dynamic Search Filtering
-  useEffect(() => {
-    if (!companyName.trim()) {
-      setFilteredSuppliers([])
-      setShowSupplierDropdown(false)
-      return
+  if (totalTaxRate > 0 && grossAmount > 0) {
+    const taxFactor = totalTaxRate / (100 + totalTaxRate)
+    const totalTax = Math.round(grossAmount * taxFactor * 100) / 100
+    if (igstRate > 0) {
+      igstAmount = totalTax
+      cgstAmount = 0
+      sgstAmount = 0
+    } else {
+      cgstAmount = Math.round(totalTax * (cgstRate / totalTaxRate) * 100) / 100
+      sgstAmount = Math.round((totalTax - cgstAmount) * 100) / 100
+      igstAmount = 0
     }
-    const q = companyName.toLowerCase().trim()
-    const matches = suppliers.filter((s) => s.name.toLowerCase().includes(q))
-    setFilteredSuppliers(matches)
-  }, [companyName, suppliers])
+    calculatedTaxable = Math.round((grossAmount - (cgstAmount + sgstAmount + igstAmount)) * 100) / 100
+  }
 
-  // Product Name Dynamic Search Filtering
-  useEffect(() => {
-    if (!productName.trim()) {
-      setFilteredProducts([])
-      setShowProductDropdown(false)
-      return
+  const totalAmount = grossAmount
+
+  // Handle manual adjustment of Taxable Amount if user overrides it
+  const handleTaxableChange = (typedTaxable: number) => {
+    if (typedTaxable < 0) return
+    const cgst = igstRate > 0 ? 0 : Math.round(((typedTaxable * cgstRate) / 100) * 100) / 100
+    const sgst = igstRate > 0 ? 0 : Math.round(((typedTaxable * sgstRate) / 100) * 100) / 100
+    const igst = igstRate > 0 ? Math.round(((typedTaxable * igstRate) / 100) * 100) / 100 : 0
+    const newGross = Math.round((typedTaxable + cgst + sgst + igst) * 100) / 100
+    const newRate = quantity > 0 ? Math.round((newGross / quantity) * 100) / 100 : newGross
+    setRate(newRate)
+  }
+
+  // --- Live Dynamic Search for Suppliers ---
+  const handleCompanyNameChange = async (typed: string) => {
+    setCompanyName(typed)
+    setSelectedSupplierId('')
+    setShowSupplierDropdown(true)
+
+    const q = typed.trim().toLowerCase()
+    // Local filter first for instant 0ms results
+    const localMatches = suppliers.filter((s) => s.name.toLowerCase().includes(q))
+    setFilteredSuppliers(localMatches)
+
+    // Remote query for live fresh DB records
+    if (typed.trim().length >= 1) {
+      try {
+        const res = await fetch(`/api/suppliers?q=${encodeURIComponent(typed.trim())}`)
+        if (res.ok) {
+          const remoteData = await res.json()
+          if (Array.isArray(remoteData)) {
+            setFilteredSuppliers(remoteData)
+          }
+        }
+      } catch (err) {
+        // local matches stay
+      }
     }
-    const q = productName.toLowerCase().trim()
-    const matches = products.filter(
-      (p) =>
-        p.name.toLowerCase().includes(q) ||
-        (p.sku && p.sku.toLowerCase().includes(q))
-    )
-    setFilteredProducts(matches)
-  }, [productName, products])
+  }
 
   // Select Supplier from Dropdown
   const handleSelectSupplier = (s: SupplierItem) => {
@@ -200,6 +222,37 @@ export function PurchaseBillTerminal({
     setGstNo(s.gstin || '')
     setAddress(s.address || '')
     setShowSupplierDropdown(false)
+  }
+
+  // --- Live Dynamic Search for Products ---
+  const handleProductNameChange = async (typed: string) => {
+    setProductName(typed)
+    setActiveProductId('')
+    setShowProductDropdown(true)
+
+    const q = typed.trim().toLowerCase()
+    // Local filter first for instant 0ms results
+    const localMatches = products.filter(
+      (p) =>
+        p.name.toLowerCase().includes(q) ||
+        (p.sku && p.sku.toLowerCase().includes(q))
+    )
+    setFilteredProducts(localMatches)
+
+    // Remote query for live fresh DB records
+    if (typed.trim().length >= 1) {
+      try {
+        const res = await fetch(`/api/products?q=${encodeURIComponent(typed.trim())}`)
+        if (res.ok) {
+          const remoteData = await res.json()
+          if (Array.isArray(remoteData)) {
+            setFilteredProducts(remoteData)
+          }
+        }
+      } catch (err) {
+        // local matches stay
+      }
+    }
   }
 
   // Select Product from Dropdown
@@ -222,102 +275,73 @@ export function PurchaseBillTerminal({
     }
   }
 
-  // Focus Barcode Scanner Panel
+  // Focus Barcode Scanner Panel and keep cursor active
   const focusScanner = () => {
     setTimeout(() => {
       barcodeInputRef.current?.focus()
-    }, 100)
+      barcodeInputRef.current?.select()
+    }, 50)
   }
 
-  // Fast Barcode Scanner Logic with immediate duplicate detection
-  const handleScanBarcode = async (e?: React.FormEvent) => {
+  // --- Instant Zero-Latency Barcode Scanner (Allows same / duplicate barcode to be added) ---
+  const handleScanBarcode = (e?: React.FormEvent) => {
     if (e) e.preventDefault()
     const code = barcodeInput.trim()
     if (!code) return
 
-    // 1. Immediate Local Check: check if already scanned in current item
-    if (scannedSerials.includes(code)) {
-      playSound(false)
-      setScannerAlert({
-        type: 'error',
-        message: `⚠️ S.NO "${code}" was already scanned for this item!`,
-      })
-      toast.error(`Duplicate Serial: "${code}" already scanned!`)
-      setBarcodeInput('')
-      return
-    }
-
-    // 2. Check if scanned in any other item of the current bill
-    for (const item of billItems) {
-      if (item.serial_numbers.includes(code)) {
-        playSound(false)
-        setScannerAlert({
-          type: 'error',
-          message: `⚠️ S.NO "${code}" is already added under "${item.product_name}" in this bill!`,
-        })
-        toast.error(`Duplicate Serial: "${code}" already in current bill!`)
-        setBarcodeInput('')
-        return
-      }
-    }
-
-    // 3. Fast Server Check against Database
-    setIsCheckingSerial(true)
-    try {
-      const res = await fetch(`/api/purchases/check-serial?serial=${encodeURIComponent(code)}`)
-      const data = await res.json()
-
-      if (data.exists) {
-        playSound(false)
-        setScannerAlert({
-          type: 'error',
-          message: `⚠️ ${data.message || `S.NO "${code}" already exists in the database!`}`,
-        })
-        toast.error(`Duplicate Serial in DB: ${code}`)
-        setIsCheckingSerial(false)
-        setBarcodeInput('')
-        return
-      }
-    } catch (err) {
-      console.warn('Network serial check warning:', err)
-    } finally {
-      setIsCheckingSerial(false)
-    }
-
-    // Passed all duplicate checks: Add serial!
+    // User requirement: "and see if the barcode or s.no is same also it should be also added"
+    // Same barcode or S.NO is fully supported and added without rejection!
     playSound(true)
     const updated = [...scannedSerials, code]
     setScannedSerials(updated)
     setBarcodeInput('')
+
+    const occurrences = updated.filter((s) => s === code).length
+    const isRepeated = occurrences > 1
+
     setScannerAlert({
       type: 'success',
-      message: `✓ S.NO "${code}" added (${updated.length} of ${quantity} scanned)`,
+      message: isRepeated
+        ? `✓ Barcode/S.NO "${code}" added (${occurrences}x repeated | ${updated.length} of ${Math.max(quantity, updated.length)} scanned)`
+        : `✓ Barcode/S.NO "${code}" added (${updated.length} of ${Math.max(quantity, updated.length)} scanned)`,
     })
 
-    // If scanned count exceeds quantity, automatically bump quantity to match
+    if (isRepeated) {
+      toast.success(`Added duplicate barcode: "${code}" (${occurrences}x)`)
+    } else {
+      toast.success(`Added barcode: "${code}"`)
+    }
+
+    // Automatically increase quantity if scanned count exceeds current quantity
     if (updated.length > quantity) {
       setQuantity(updated.length)
     }
 
-    barcodeInputRef.current?.focus()
+    // Immediately keep focus active so user can continuously scan with barcode gun
+    requestAnimationFrame(() => {
+      barcodeInputRef.current?.focus()
+    })
   }
 
   // Remove individual scanned serial
   const removeSerial = (indexToRemove: number) => {
     setScannedSerials(scannedSerials.filter((_, idx) => idx !== indexToRemove))
     setScannerAlert({ type: null, message: '' })
+    barcodeInputRef.current?.focus()
   }
 
   // Clear all scanned serials
   const clearAllSerials = () => {
     setScannedSerials([])
     setScannerAlert({ type: null, message: '' })
+    barcodeInputRef.current?.focus()
   }
 
   // Add Item to Bill
   const handleAddItemToBill = () => {
     if (!productName.trim()) {
       toast.error('Please enter or select a Product Name.')
+      productNameInputRef.current?.focus()
       return
     }
     if (quantity <= 0) {
@@ -342,7 +366,7 @@ export function PurchaseBillTerminal({
     const newItem: PurchaseBillItem = {
       product_id: activeProductId || undefined,
       product_name: productName.trim(),
-      hsn_code: hsnCode.trim() || '8471',
+      hsn_code: hsnCode.trim(),
       quantity,
       rate,
       gross_amount: grossAmount,
@@ -363,15 +387,19 @@ export function PurchaseBillTerminal({
     // Reset product input form for next product
     setActiveProductId('')
     setProductName('')
-    setHsnCode('8471')
+    setHsnCode('')
     setQuantity(1)
     setRate(0)
     setCgstRate(9)
     setSgstRate(9)
     setIgstRate(0)
-    setTaxableAmount(0)
     setScannedSerials([])
     setScannerAlert({ type: null, message: '' })
+
+    // Auto-focus back on product name for rapid data entry
+    setTimeout(() => {
+      productNameInputRef.current?.focus()
+    }, 100)
   }
 
   // Remove Item from Bill
@@ -407,8 +435,8 @@ export function PurchaseBillTerminal({
           phone: phoneNumber.trim() || null,
           address: address.trim() || null,
         },
-        invoice_number: invoiceNumber.trim(),
-        receipt_date: invoiceDate,
+        invoice_number: invoiceNumber.trim() || undefined,
+        receipt_date: invoiceDate || undefined,
         items: billItems,
         totals: {
           taxable_total: billTaxableTotal,
@@ -431,7 +459,7 @@ export function PurchaseBillTerminal({
         throw new Error(data.error || 'Failed to save purchase bill')
       }
 
-      toast.success('Purchase bill saved and inventory stock updated successfully!')
+      toast.success('Purchase bill recorded and stock updated successfully!')
       setSavedPurchase(data)
     } catch (err: any) {
       console.error('Save purchase error:', err)
@@ -441,7 +469,7 @@ export function PurchaseBillTerminal({
     }
   }
 
-  // Reset for a New Bill
+  // Reset for a New Bill (All fields empty)
   const handleStartNewBill = () => {
     setSavedPurchase(null)
     setBillItems([])
@@ -450,10 +478,13 @@ export function PurchaseBillTerminal({
     setGstNo('')
     setPhoneNumber('')
     setAddress('')
-    setInvoiceNumber(`PUR-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`)
-    setInvoiceDate(new Date().toISOString().split('T')[0])
+    setInvoiceNumber('')
+    setInvoiceDate('')
     setProductName('')
     setActiveProductId('')
+    setHsnCode('')
+    setQuantity(1)
+    setRate(0)
     setScannedSerials([])
   }
 
@@ -516,7 +547,7 @@ export function PurchaseBillTerminal({
         </div>
       </div>
 
-      {/* Main 2-Column Grid matching the wireframe image */}
+      {/* Main 2-Column Grid matching the wireframe */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* LEFT COLUMN: Supplier Details + Product Adding + Current Bill (7 cols on lg) */}
         <div className="lg:col-span-7 space-y-6">
@@ -547,12 +578,9 @@ export function PurchaseBillTerminal({
                   <input
                     type="text"
                     value={companyName}
-                    onChange={(e) => {
-                      setCompanyName(e.target.value)
-                      setShowSupplierDropdown(true)
-                    }}
+                    onChange={(e) => handleCompanyNameChange(e.target.value)}
                     onFocus={() => {
-                      if (filteredSuppliers.length > 0) setShowSupplierDropdown(true)
+                      if (companyName.trim() || suppliers.length > 0) setShowSupplierDropdown(true)
                     }}
                     placeholder="Search or enter company..."
                     className="w-full pl-8 pr-3 py-2 text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-primary focus:outline-hidden"
@@ -561,28 +589,42 @@ export function PurchaseBillTerminal({
                 </div>
 
                 {/* Autocomplete Dropdown */}
-                {showSupplierDropdown && filteredSuppliers.length > 0 && (
-                  <div className="absolute z-30 left-0 right-0 mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-lg max-h-48 overflow-y-auto">
+                {showSupplierDropdown && (
+                  <div className="absolute z-30 left-0 right-0 mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl max-h-56 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-700">
                     {filteredSuppliers.map((s) => (
                       <button
                         key={s.id}
                         type="button"
                         onClick={() => handleSelectSupplier(s)}
-                        className="w-full text-left px-3 py-2 text-xs hover:bg-slate-100 dark:hover:bg-slate-700/60 transition flex flex-col"
+                        className="w-full text-left px-3 py-2.5 text-xs hover:bg-blue-50 dark:hover:bg-slate-700/60 transition flex flex-col"
                       >
-                        <span className="font-semibold text-slate-900 dark:text-white">
-                          {s.name}
+                        <span className="font-semibold text-slate-900 dark:text-white flex items-center justify-between">
+                          <span>{s.name}</span>
+                          <span className="text-[10px] text-emerald-600 bg-emerald-50 dark:bg-emerald-950/60 px-1.5 py-0.5 rounded font-medium">
+                            Existing Supplier
+                          </span>
                         </span>
-                        <span className="text-[10px] text-slate-400">
-                          {s.gstin ? `GSTIN: ${s.gstin}` : ''} {s.phone ? `| Ph: ${s.phone}` : ''}
+                        <span className="text-[10px] text-slate-400 mt-0.5">
+                          {s.gstin ? `GSTIN: ${s.gstin}` : ''} {s.phone ? `| Ph: ${s.phone}` : ''} {s.address ? `| ${s.address}` : ''}
                         </span>
                       </button>
                     ))}
+
+                    {companyName.trim() && !filteredSuppliers.some((s) => s.name.toLowerCase() === companyName.trim().toLowerCase()) && (
+                      <button
+                        type="button"
+                        onClick={() => setShowSupplierDropdown(false)}
+                        className="w-full text-left px-3 py-2.5 text-xs bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 transition flex items-center justify-between text-primary font-medium"
+                      >
+                        <span>+ Use &quot;<b>{companyName.trim()}</b>&quot; (New Supplier)</span>
+                        <span className="text-[10px] text-slate-400">Will auto-save to DB</span>
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
 
-              {/* Invoice Number */}
+              {/* Invoice Number (Empty by default) */}
               <div>
                 <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                   Invoice Number <span className="text-rose-500">*</span>
@@ -591,15 +633,15 @@ export function PurchaseBillTerminal({
                   type="text"
                   value={invoiceNumber}
                   onChange={(e) => setInvoiceNumber(e.target.value)}
-                  placeholder="e.g. PUR-2026-001"
+                  placeholder="Enter vendor bill / invoice number..."
                   className="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-primary focus:outline-hidden font-mono"
                 />
               </div>
 
-              {/* Date */}
+              {/* Date (Empty by default) */}
               <div>
                 <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  Date <span className="text-rose-500">*</span>
+                  Date
                 </label>
                 <input
                   type="date"
@@ -678,14 +720,12 @@ export function PurchaseBillTerminal({
                 </label>
                 <div className="relative">
                   <input
+                    ref={productNameInputRef}
                     type="text"
                     value={productName}
-                    onChange={(e) => {
-                      setProductName(e.target.value)
-                      setShowProductDropdown(true)
-                    }}
+                    onChange={(e) => handleProductNameChange(e.target.value)}
                     onFocus={() => {
-                      if (filteredProducts.length > 0) setShowProductDropdown(true)
+                      if (productName.trim() || products.length > 0) setShowProductDropdown(true)
                     }}
                     placeholder="Search or enter product..."
                     className="w-full pl-8 pr-3 py-2 text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-primary focus:outline-hidden font-medium"
@@ -694,28 +734,42 @@ export function PurchaseBillTerminal({
                 </div>
 
                 {/* Autocomplete Dropdown */}
-                {showProductDropdown && filteredProducts.length > 0 && (
-                  <div className="absolute z-30 left-0 right-0 mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-lg max-h-48 overflow-y-auto">
+                {showProductDropdown && (
+                  <div className="absolute z-30 left-0 right-0 mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl max-h-56 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-700">
                     {filteredProducts.map((p) => (
                       <button
                         key={p.id}
                         type="button"
                         onClick={() => handleSelectProduct(p)}
-                        className="w-full text-left px-3 py-2 text-xs hover:bg-slate-100 dark:hover:bg-slate-700/60 transition flex flex-col"
+                        className="w-full text-left px-3 py-2.5 text-xs hover:bg-emerald-50 dark:hover:bg-slate-700/60 transition flex flex-col"
                       >
-                        <span className="font-semibold text-slate-900 dark:text-white">
-                          {p.name}
+                        <span className="font-semibold text-slate-900 dark:text-white flex items-center justify-between">
+                          <span>{p.name}</span>
+                          <span className="text-[10px] text-blue-600 bg-blue-50 dark:bg-blue-950/60 px-1.5 py-0.5 rounded font-medium">
+                            Existing in Catalog
+                          </span>
                         </span>
-                        <span className="text-[10px] text-slate-400">
+                        <span className="text-[10px] text-slate-400 mt-0.5">
                           SKU: {p.sku} {p.description ? `| ${p.description}` : ''}
                         </span>
                       </button>
                     ))}
+
+                    {productName.trim() && !filteredProducts.some((p) => p.name.toLowerCase() === productName.trim().toLowerCase()) && (
+                      <button
+                        type="button"
+                        onClick={() => setShowProductDropdown(false)}
+                        className="w-full text-left px-3 py-2.5 text-xs bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 transition flex items-center justify-between text-emerald-600 font-medium"
+                      >
+                        <span>+ Use &quot;<b>{productName.trim()}</b>&quot; (New Product)</span>
+                        <span className="text-[10px] text-slate-400">Will auto-register to DB</span>
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
 
-              {/* HSN Code */}
+              {/* HSN Code (Empty by default) */}
               <div>
                 <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                   HSN Code
@@ -780,8 +834,8 @@ export function PurchaseBillTerminal({
                 <input
                   type="number"
                   step="0.01"
-                  value={taxableAmount || ''}
-                  onChange={(e) => setTaxableAmount(parseFloat(e.target.value) || 0)}
+                  value={calculatedTaxable > 0 ? calculatedTaxable : ''}
+                  onChange={(e) => handleTaxableChange(parseFloat(e.target.value) || 0)}
                   placeholder="0.00"
                   className="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-primary focus:outline-hidden font-semibold"
                 />
@@ -875,7 +929,7 @@ export function PurchaseBillTerminal({
                 />
               </div>
 
-              {/* Add Serial No Button (Arrows to Right Scanner) */}
+              {/* Add Serial No Button (Directly focuses and activates right scanner) */}
               <div className="flex flex-col justify-end">
                 <button
                   type="button"
@@ -1038,7 +1092,7 @@ export function PurchaseBillTerminal({
                     Barcode / S.NO Scanner
                   </h2>
                   <p className="text-[11px] text-slate-400">
-                    Fast duplicate check against DB
+                    Fast instant duplicate check
                   </p>
                 </div>
               </div>
@@ -1061,7 +1115,7 @@ export function PurchaseBillTerminal({
                   Target Product
                 </span>
                 <div className="text-xs font-semibold text-white truncate max-w-[200px]">
-                  {productName.trim() || 'No product selected'}
+                  {productName.trim() || 'Select product on left'}
                 </div>
               </div>
               <div className="text-right">
@@ -1080,7 +1134,7 @@ export function PurchaseBillTerminal({
               </div>
             </div>
 
-            {/* Barcode Scanner Input Form */}
+            {/* Barcode Scanner Input Form (NEVER disabled - Continuous Focus) */}
             <form onSubmit={handleScanBarcode} className="space-y-3">
               <div>
                 <label className="block text-xs font-semibold text-slate-300 mb-1">
@@ -1093,20 +1147,15 @@ export function PurchaseBillTerminal({
                     value={barcodeInput}
                     onChange={(e) => setBarcodeInput(e.target.value)}
                     placeholder="Scan barcode or press Enter..."
-                    disabled={isCheckingSerial}
-                    className="w-full pl-9 pr-12 py-2.5 text-sm bg-slate-950 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-emerald-500 focus:outline-hidden font-mono"
+                    className="w-full pl-9 pr-14 py-2.5 text-sm bg-slate-950 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-emerald-500 focus:outline-hidden font-mono"
                   />
                   <Barcode className="w-4 h-4 text-emerald-400 absolute left-3 top-3" />
                   <button
                     type="submit"
-                    disabled={!barcodeInput.trim() || isCheckingSerial}
-                    className="absolute right-1.5 top-1.5 px-3 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold disabled:opacity-40 transition flex items-center gap-1"
+                    disabled={!barcodeInput.trim()}
+                    className="absolute right-1.5 top-1.5 px-3 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold disabled:opacity-40 transition flex items-center gap-1 cursor-pointer"
                   >
-                    {isCheckingSerial ? (
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    ) : (
-                      <span>Add</span>
-                    )}
+                    <span>Add</span>
                   </button>
                 </div>
               </div>
@@ -1134,7 +1183,7 @@ export function PurchaseBillTerminal({
             <div className="mt-5">
               <div className="flex items-center justify-between text-xs text-slate-400 mb-2">
                 <span>Scanned Barcodes ({scannedSerials.length})</span>
-                <span className="text-[10px] text-slate-500">Fast duplicate protected</span>
+                <span className="text-[10px] text-slate-500">Fast continuous scan active</span>
               </div>
 
               {scannedSerials.length === 0 ? (
@@ -1143,25 +1192,35 @@ export function PurchaseBillTerminal({
                 </div>
               ) : (
                 <div className="space-y-1.5 max-h-72 overflow-y-auto pr-1">
-                  {scannedSerials.map((s, idx) => (
-                    <div
-                      key={idx}
-                      className="flex items-center justify-between p-2.5 bg-slate-800/60 border border-slate-700/60 rounded-xl text-xs font-mono text-slate-200 hover:bg-slate-800 transition"
-                    >
-                      <div className="flex items-center gap-2">
-                        <span className="text-slate-500 font-sans text-[10px]">#{idx + 1}</span>
-                        <Barcode className="w-3.5 h-3.5 text-emerald-400" />
-                        <span className="font-bold text-white">{s}</span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => removeSerial(idx)}
-                        className="text-slate-400 hover:text-rose-400 transition"
+                  {scannedSerials.map((s, idx) => {
+                    const occurrencesBeforeThis = scannedSerials.slice(0, idx + 1).filter((c) => c === s).length
+                    const totalOccurrences = scannedSerials.filter((c) => c === s).length
+                    return (
+                      <div
+                        key={idx}
+                        className="flex items-center justify-between p-2.5 bg-slate-800/60 border border-slate-700/60 rounded-xl text-xs font-mono text-slate-200 hover:bg-slate-800 transition"
                       >
-                        <X className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  ))}
+                        <div className="flex items-center gap-2">
+                          <span className="text-slate-500 font-sans text-[10px]">#{idx + 1}</span>
+                          <Barcode className="w-3.5 h-3.5 text-emerald-400" />
+                          <span className="font-bold text-white">{s}</span>
+                          {totalOccurrences > 1 && (
+                            <span className="text-[9px] font-sans px-1.5 py-0.5 rounded bg-amber-950/80 text-amber-300 border border-amber-800/60 font-medium">
+                              Repeat #{occurrencesBeforeThis}
+                            </span>
+                          )}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => removeSerial(idx)}
+                          className="text-slate-400 hover:text-rose-400 transition p-0.5 hover:bg-slate-700 rounded"
+                          title="Remove this barcode"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    )
+                  })}
                 </div>
               )}
             </div>

@@ -1,23 +1,24 @@
 // lib/formatters.ts
 
 export const SHOP_DETAILS = {
-  name: 'Gnapika Computer Shopee',
-  legalName: 'Gnapika Computer Shopee',
-  tagline: 'Multi-Brand Laptops, Desktops, Peripherals, Accessories & Chip-Level Service Center',
-  address: '38-1-7, American Hospital Road, Opposite Indira Towers, MG Road (near P.W.D Grounds / Rythu Bazar)',
+  name: 'GNAPIKA COMPUTER SHOPEE',
+  legalName: 'GNAPIKA COMPUTER SHOPEE',
+  tagline: 'A house that cares for all your computer needs',
+  address: 'D.No. 38-1-7, Opposite Indira Towers, American Hospital Road, MG Road (near P.W.D Grounds / Rythu Bazar)',
   city: 'Vijayawada, Andhra Pradesh - 520002',
-  phone: '+91 92915 86906 / +91 89199 98149',
-  email: 'gnapikacomputers@gmail.com',
-  gstin: '37AAEFG1234A1Z5',
-  state: 'Andhra Pradesh',
+  phone: '9493471414',
+  email: 'gnapikacomputershopee@gmail.com',
+  gstin: '37BEYPC1417G1ZG',
+  pan: 'BEYPC1417G',
+  state: 'ANDHRA PRADESH',
   stateCode: '37',
   bankDetails: {
-    bankName: 'State Bank of India',
-    accountName: 'Gnapika Computer Shopee',
-    accountNo: '389201948201',
-    ifsc: 'SBIN0001234',
-    branch: 'Vijayawada Main Branch',
-    upiId: '9291586906@sbi',
+    bankName: 'CITY UNION BANK',
+    accountName: 'GNAPIKA COMPUTER SHOPEE',
+    accountNo: '512020010025952',
+    ifsc: 'CIUB0000061',
+    branch: 'VIJAYAWADA',
+    upiId: '9493471414@ybl',
   },
 }
 
@@ -69,3 +70,23 @@ export function numberToWordsRupees(num: number): string {
   if (rounded === 0) return 'Zero Rupees Only'
   return `${inWords(rounded).trim()} Rupees Only`
 }
+
+/**
+ * Computes Indian Financial Year in 'YY-YY' format (e.g. '26-27').
+ * Financial Year changes after every March (i.e., on April 1st).
+ * - January, February, March: (Year - 1)-(Year) -> e.g. March 2027 is '26-27'
+ * - April through December: Year-(Year + 1) -> e.g. November 2026 is '26-27'
+ */
+export function getFinancialYear(date: Date = new Date()): string {
+  const month = date.getMonth() // 0 to 11 (0=Jan, 1=Feb, 2=Mar, 3=Apr)
+  const year = date.getFullYear()
+
+  const startYear = month < 3 ? year - 1 : year
+  const endYear = startYear + 1
+
+  const startStr = String(startYear).slice(-2)
+  const endStr = String(endYear).slice(-2)
+
+  return `${startStr}-${endStr}`
+}
+
