@@ -1,8 +1,8 @@
-// app/api/services/route.ts
 import { NextResponse } from 'next/server'
 import { supabaseService } from '@/lib/supabase'
 import { getCurrentUserContext } from '@/lib/auth'
 import { generateNextServiceRefNumber } from '@/lib/sequence'
+import { extractAccessories, cleanProblemDescription } from '@/lib/serviceHelpers'
 
 export const dynamic = 'force-dynamic'
 
@@ -23,7 +23,14 @@ export async function GET() {
       .order('created_at', { ascending: false })
 
     if (error) throw error
-    return NextResponse.json(services)
+
+    const formattedServices = (services || []).map((svc: any) => ({
+      ...svc,
+      accessories: extractAccessories(svc),
+      clean_problem_description: cleanProblemDescription(svc.problem_description),
+    }))
+
+    return NextResponse.json(formattedServices)
   } catch (error: any) {
     return NextResponse.json({ error: error?.message || "Internal Server Error" }, { status: 500 })
   }
@@ -48,6 +55,7 @@ export async function POST(request: Request) {
       estimated_cost,
       assigned_technician_id,
       expected_completion_date,
+      accessories,
     } = body
 
     // 1. Resolve or Create Customer
@@ -119,23 +127,39 @@ export async function POST(request: Request) {
     // Generate sequential service reference number (Format: GCS-SER<FY>/<Sequence>, e.g. GCS-SER26-27/1)
     const serviceRefNumber = await generateNextServiceRefNumber(context.organization_id)
 
-    const { data: newService, error } = await supabaseService
+    // Process accessories list
+    const accessoriesList: string[] = Array.isArray(accessories)
+      ? accessories.map((a: string) => String(a).trim()).filter(Boolean)
+      : (typeof accessories === 'string' && accessories.trim()
+          ? accessories.split(',').map((a: string) => a.trim()).filter(Boolean)
+          : [])
+    const accessoriesText = accessoriesList.join(', ')
+
+    const baseJobData: any = {
+      organization_id: context.organization_id,
+      customer_id: resolvedCustomerId,
+      branch_id: activeBranchId,
+      service_ref_number: serviceRefNumber,
+      device_type: device_type || 'Laptop',
+      company_brand: company_brand || 'General',
+      model: model || 'Standard',
+      serial_number: serial_number || null,
+      problem_description: problem_description || 'Diagnostic & Service',
+      diagnosis: service_type || null,
+      estimated_cost: parseFloat(estimated_cost) || 0,
+      assigned_technician_id: assigned_technician_id || null,
+      expected_completion_date: expected_completion_date || null,
+      status: 'Received',
+    }
+
+    let newService: any = null
+
+    // Try inserting with native accessories column first
+    const { data: insertedWithAcc, error: accError } = await supabaseService
       .from('service_jobs')
       .insert([{
-        organization_id: context.organization_id,
-        customer_id: resolvedCustomerId,
-        branch_id: activeBranchId,
-        service_ref_number: serviceRefNumber,
-        device_type: device_type || 'Laptop',
-        company_brand: company_brand || 'General',
-        model: model || 'Standard',
-        serial_number: serial_number || null,
-        problem_description: problem_description || 'Diagnostic & Service',
-        diagnosis: service_type || null,
-        estimated_cost: parseFloat(estimated_cost) || 0,
-        assigned_technician_id: assigned_technician_id || null,
-        expected_completion_date: expected_completion_date || null,
-        status: 'Received',
+        ...baseJobData,
+        accessories: accessoriesText || null,
       }])
       .select(`
         *,
@@ -143,7 +167,35 @@ export async function POST(request: Request) {
       `)
       .single()
 
-    if (error) throw error
+    if (!accError && insertedWithAcc) {
+      newService = insertedWithAcc
+    } else if (accError?.code === '42703' || accError?.message?.includes('accessories')) {
+      // Column 'accessories' does not exist in schema yet - fallback to embedding tag in problem_description
+      const fallbackProblem = accessoriesText
+        ? `${baseJobData.problem_description}\n\n[Accessories: ${accessoriesText}]`
+        : baseJobData.problem_description
+
+      const { data: fallbackService, error: fallbackError } = await supabaseService
+        .from('service_jobs')
+        .insert([{
+          ...baseJobData,
+          problem_description: fallbackProblem,
+        }])
+        .select(`
+          *,
+          customers ( customer_name, phone_number, alt_phone_number, address, email )
+        `)
+        .single()
+
+      if (fallbackError) throw fallbackError
+      newService = fallbackService
+    } else if (accError) {
+      throw accError
+    }
+
+    // Always attach parsed accessories array & clean description to response
+    newService.accessories = accessoriesList
+    newService.clean_problem_description = problem_description || 'Diagnostic & Service'
 
     // Initial status history entry
     await supabaseService
@@ -152,7 +204,7 @@ export async function POST(request: Request) {
         service_job_id: newService.id,
         status_changed_to: 'Received',
         changed_at: new Date().toISOString(),
-        notes: 'Service job registered',
+        notes: accessoriesText ? `Service job registered. Accessories received: ${accessoriesText}` : 'Service job registered',
       }])
 
     return NextResponse.json(newService, { status: 201 })

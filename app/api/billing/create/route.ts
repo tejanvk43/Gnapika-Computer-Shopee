@@ -170,12 +170,11 @@ export async function POST(request: Request) {
         const qty = parseFloat(it.quantity) || 1
         const unitPrice = parseFloat(it.unit_price) || 0
         const discount = parseFloat(it.discount) || 0
-        const gross = Math.max(0, (unitPrice * qty) - discount)
+        const taxable = Math.max(0, (unitPrice * qty) - discount)
         const gstRate = 18.00
-        const taxFactor = gstRate / (100 + gstRate)
-        const itemGst = Math.round(gross * taxFactor * 100) / 100
-        const taxable = Math.round((gross - itemGst) * 100) / 100
-        const lineTotal = gross
+        const cgst = Math.round(taxable * 0.09 * 100) / 100
+        const sgst = Math.round(taxable * 0.09 * 100) / 100
+        const lineTotal = Math.round((taxable + cgst + sgst) * 100) / 100
 
         return {
           invoice_id: newInvoice.id,

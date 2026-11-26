@@ -1,10 +1,12 @@
-// app/dashboard/services/[id]/page.tsx
 import { getCurrentUserContext } from '@/lib/auth'
 import { redirect, notFound } from 'next/navigation'
 import { supabaseService } from '@/lib/supabase'
 import Link from 'next/link'
 import { PrintServiceSlipButton } from '@/components/services/PrintServiceSlipButton'
+import { PrintServiceInvoiceButton } from '@/components/services/PrintServiceInvoiceButton'
+import { ServiceBillingCard } from '@/components/services/ServiceBillingCard'
 import { ServiceStatusAdvancer } from '@/components/services/ServiceStatusAdvancer'
+import { extractAccessories, cleanProblemDescription } from '@/lib/serviceHelpers'
 import {
   ArrowLeft,
   Wrench,
@@ -17,6 +19,7 @@ import {
   Clock,
   AlertCircle,
   FileText,
+  PackageCheck,
 } from 'lucide-react'
 
 export default async function ServiceDetailPage({
@@ -46,6 +49,20 @@ export default async function ServiceDetailPage({
   if (error || !service) {
     notFound()
   }
+
+  // Fetch Service Invoice if already generated
+  const { data: serviceInvoice } = await supabaseService
+    .from('invoices')
+    .select(`
+      *,
+      customers ( * ),
+      invoice_items ( * )
+    `)
+    .filter('invoice_snapshot->>service_job_id', 'eq', params.id)
+    .maybeSingle()
+
+  const accessories = extractAccessories(service)
+  const cleanProblem = cleanProblemDescription(service.problem_description)
 
   const statusFlow = ['Received', 'In Progress', 'Completed']
   let currentIndex = statusFlow.indexOf(service.status)
@@ -96,6 +113,7 @@ export default async function ServiceDetailPage({
         </div>
 
         <div className="flex items-center gap-3">
+          {serviceInvoice && <PrintServiceInvoiceButton invoice={serviceInvoice} />}
           <PrintServiceSlipButton service={service} />
         </div>
       </div>
@@ -103,11 +121,16 @@ export default async function ServiceDetailPage({
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left 2 Cols: Details */}
         <div className="lg:col-span-2 space-y-6">
+          {/* Service Billing Card (Enter Actual Amount Taken & Generate Bill) */}
+          <ServiceBillingCard
+            service={service}
+            initialInvoice={serviceInvoice}
+          />
           {/* Customer & Device Card */}
           <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-6 shadow-xs">
             <h2 className="text-sm font-bold uppercase tracking-wider text-slate-900 dark:text-white flex items-center gap-2 mb-4">
               <Laptop className="w-4 h-4 text-orange-600" />
-              <span>Customer & Device Information</span>
+              <span>Customer &amp; Device Information</span>
             </h2>
 
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 text-xs">
@@ -130,7 +153,7 @@ export default async function ServiceDetailPage({
                 </p>
               </div>
               <div>
-                <span className="text-slate-400 block mb-0.5">Brand & Model:</span>
+                <span className="text-slate-400 block mb-0.5">Brand &amp; Model:</span>
                 <p className="font-semibold text-slate-800 dark:text-slate-200">
                   {service.company_brand} {service.model}
                 </p>
@@ -154,15 +177,36 @@ export default async function ServiceDetailPage({
           <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-6 shadow-xs">
             <h2 className="text-sm font-bold uppercase tracking-wider text-slate-900 dark:text-white flex items-center gap-2 mb-4">
               <FileText className="w-4 h-4 text-orange-600" />
-              <span>Problem & Diagnostic Details</span>
+              <span>Problem, Accessories &amp; Diagnostic Details</span>
             </h2>
 
             <div className="space-y-4 text-xs">
               <div>
                 <span className="text-slate-400 block mb-1">Customer Reported Problem:</span>
                 <div className="p-3.5 bg-slate-50 dark:bg-slate-800/50 rounded-xl text-slate-800 dark:text-slate-200 leading-relaxed font-medium">
-                  {service.problem_description}
+                  {cleanProblem}
                 </div>
+              </div>
+
+              <div>
+                <span className="text-slate-400 block mb-1">Intake Accessories Received from Customer:</span>
+                {accessories.length > 0 ? (
+                  <div className="flex flex-wrap gap-2 mt-1">
+                    {accessories.map((acc: string) => (
+                      <span
+                        key={acc}
+                        className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-orange-50 dark:bg-orange-950/40 border border-orange-200 dark:border-orange-800 text-orange-900 dark:text-orange-200 text-xs font-bold"
+                      >
+                        <CheckCircle2 className="w-3.5 h-3.5 text-orange-600" />
+                        <span>{acc}</span>
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-slate-500 italic font-medium p-2 bg-slate-50 dark:bg-slate-800/40 rounded-lg">
+                    Device Only &mdash; No accessories received
+                  </p>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-4">

@@ -1,9 +1,9 @@
-// app/dashboard/services/page.tsx
 import { getCurrentUserContext } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import { supabaseService } from '@/lib/supabase'
 import Link from 'next/link'
 import { Wrench, Plus, Eye, Laptop, User } from 'lucide-react'
+import { extractAccessories, cleanProblemDescription } from '@/lib/serviceHelpers'
 
 async function getServicesData() {
   const context = await getCurrentUserContext()
@@ -113,8 +113,15 @@ export default async function ServicesPage() {
                       </div>
                       <div className="text-slate-500">{service.device_type}</div>
                     </td>
-                    <td className="p-4 max-w-xs truncate text-xs text-slate-600 dark:text-slate-400">
-                      {service.problem_description}
+                    <td className="p-4 max-w-xs text-xs text-slate-600 dark:text-slate-400">
+                      <div className="truncate font-medium text-slate-800 dark:text-slate-200">
+                        {cleanProblemDescription(service.problem_description)}
+                      </div>
+                      {extractAccessories(service).length > 0 && (
+                        <div className="text-[10px] text-orange-600 dark:text-orange-400 font-semibold truncate mt-0.5">
+                          + {extractAccessories(service).join(', ')}
+                        </div>
+                      )}
                     </td>
                     <td className="p-4">
                       <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-semibold ${statusColors[service.status] || 'bg-slate-100 text-slate-800'}`}>

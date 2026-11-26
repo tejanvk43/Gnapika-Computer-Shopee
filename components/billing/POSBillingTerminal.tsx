@@ -256,12 +256,13 @@ export function POSBillingTerminal({
     if (existingIndex > -1) {
       const updated = [...cart]
       updated[existingIndex].quantity += 1
-      updated[existingIndex].line_total =
-        updated[existingIndex].quantity * updated[existingIndex].unit_price - updated[existingIndex].discount
+      const taxable = Math.max(0, updated[existingIndex].quantity * updated[existingIndex].unit_price - (updated[existingIndex].discount || 0))
+      updated[existingIndex].line_total = Math.round(taxable * 1.18 * 100) / 100
       setCart(updated)
       playSound(true)
       toast.success(`Incremented "${product.name}" quantity to ${updated[existingIndex].quantity}`)
     } else {
+      const taxable = itemPrice
       setCart([
         ...cart,
         {
@@ -271,7 +272,7 @@ export function POSBillingTerminal({
           unit_price: itemPrice,
           quantity: 1,
           discount: 0,
-          line_total: itemPrice,
+          line_total: Math.round(taxable * 1.18 * 100) / 100,
         },
       ])
       playSound(true)
@@ -336,14 +337,16 @@ export function POSBillingTerminal({
     }
     const updated = [...cart]
     updated[index].quantity = qty
-    updated[index].line_total = qty * updated[index].unit_price - updated[index].discount
+    const taxable = Math.max(0, qty * updated[index].unit_price - (updated[index].discount || 0))
+    updated[index].line_total = Math.round(taxable * 1.18 * 100) / 100
     setCart(updated)
   }
 
   const updatePrice = (index: number, price: number) => {
     const updated = [...cart]
     updated[index].unit_price = price
-    updated[index].line_total = updated[index].quantity * price - updated[index].discount
+    const taxable = Math.max(0, updated[index].quantity * price - (updated[index].discount || 0))
+    updated[index].line_total = Math.round(taxable * 1.18 * 100) / 100
     setCart(updated)
   }
 
@@ -351,23 +354,20 @@ export function POSBillingTerminal({
     setCart(cart.filter((_, i) => i !== index))
   }
 
-  // --- Inclusive GST Calculations ---
-  // rate => taxable + cgst + sgst + igst
-  // gross = rate * qty - discount
-  // total amount is same as gross
-  const productsGross = cart.reduce(
-    (sum, it) => sum + (it.unit_price * it.quantity - (it.discount || 0)),
+  // --- Taxable Pricing & GST Calculations ---
+  // Unit price and service charge are taxable amounts
+  // taxable = (unit_price * qty) - discount
+  // GST 18% (9% CGST + 9% SGST) added on top
+  const productsTaxable = cart.reduce(
+    (sum, it) => sum + Math.max(0, it.unit_price * it.quantity - (it.discount || 0)),
     0
   )
   const numServiceCharge = Math.max(0, parseFloat(serviceCharge as any) || 0)
-  const grandTotal = Math.round((productsGross + numServiceCharge) * 100) / 100
-
-  const gstRate = 0.18
-  const taxFactor = gstRate / (1 + gstRate) // 0.18 / 1.18
-  const totalGst = Math.round(grandTotal * taxFactor * 100) / 100
-  const subtotal = Math.round((grandTotal - totalGst) * 100) / 100
-  const cgstAmount = Math.round((totalGst / 2) * 100) / 100
-  const sgstAmount = Math.round((totalGst - cgstAmount) * 100) / 100
+  const subtotal = Math.round((productsTaxable + numServiceCharge) * 100) / 100
+  const cgstAmount = Math.round(subtotal * 0.09 * 100) / 100
+  const sgstAmount = Math.round(subtotal * 0.09 * 100) / 100
+  const totalGst = Math.round((cgstAmount + sgstAmount) * 100) / 100
+  const grandTotal = Math.round((subtotal + totalGst) * 100) / 100
 
   // Effective Payment & Due Calculations
   const effectiveAmountPaid = paymentModeType === 'full'
@@ -492,7 +492,7 @@ export function POSBillingTerminal({
                 className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl bg-primary hover:bg-primary/90 text-white font-bold text-xs shadow-md transition cursor-pointer"
               >
                 <Printer className="w-4 h-4" />
-                <span>Print Tax Invoice</span>
+                <span>Print Invoice</span>
               </button>
             </div>
           </div>
@@ -677,14 +677,14 @@ export function POSBillingTerminal({
                 <Barcode className="w-5 h-5 text-primary" />
                 <span>Add Products to Bill</span>
               </h3>
-              <button
+              {/* <button
                 type="button"
                 onClick={() => setShowScanner(!showScanner)}
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300 transition"
               >
                 <Barcode className="w-4 h-4 text-primary" />
                 <span>{showScanner ? 'Hide Camera Scanner' : 'Scan via Camera'}</span>
-              </button>
+              </button> */}
             </div>
 
             {showScanner && (
@@ -767,9 +767,9 @@ export function POSBillingTerminal({
                   <tr className="border-b border-slate-100 dark:border-slate-800 text-slate-400 font-semibold uppercase">
                     <th className="p-3 pl-4">Product Name</th>
                     <th className="p-3">SKU</th>
-                    <th className="p-3 text-right">Rate (₹)</th>
+                    <th className="p-3 text-right">Taxable Rate (₹)</th>
                     <th className="p-3 text-center">Qty</th>
-                    <th className="p-3 text-right">Gross Total (₹)</th>
+                    <th className="p-3 text-right">Line Total (+18% GST)</th>
                     <th className="p-3 pr-4 text-right">Action</th>
                   </tr>
                 </thead>
@@ -844,15 +844,15 @@ export function POSBillingTerminal({
               <h3 className="text-base font-extrabold text-slate-900 dark:text-white">
                 Billing Summary
               </h3>
-              <p className="text-xs text-slate-400 mt-0.5">Inclusive 18% GST (9% CGST + 9% SGST)</p>
+              <p className="text-xs text-slate-400 mt-0.5">+18% GST (9% CGST + 9% SGST) added to taxable amounts</p>
             </div>
 
             {/* Calculations Breakdown */}
             <div className="space-y-3 text-sm text-slate-600 dark:text-slate-400">
               <div className="flex justify-between">
-                <span>Products Gross:</span>
+                <span>Products Taxable:</span>
                 <span className="font-mono font-semibold text-slate-900 dark:text-white">
-                  ₹{productsGross.toFixed(2)}
+                  ₹{productsTaxable.toFixed(2)}
                 </span>
               </div>
               {numServiceCharge > 0 && (
@@ -865,8 +865,8 @@ export function POSBillingTerminal({
                 </div>
               )}
               <div className="flex justify-between text-xs">
-                <span>Taxable Subtotal:</span>
-                <span className="font-mono">₹{subtotal.toFixed(2)}</span>
+                <span>Total Taxable Subtotal:</span>
+                <span className="font-mono font-bold text-slate-800 dark:text-slate-200">₹{subtotal.toFixed(2)}</span>
               </div>
               <div className="flex justify-between text-xs">
                 <span>CGST (9%):</span>
@@ -875,6 +875,10 @@ export function POSBillingTerminal({
               <div className="flex justify-between text-xs">
                 <span>SGST (9%):</span>
                 <span className="font-mono">₹{sgstAmount.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between text-xs">
+                <span>Total GST (18%):</span>
+                <span className="font-mono font-semibold text-slate-700 dark:text-slate-300">₹{totalGst.toFixed(2)}</span>
               </div>
               <div className="border-t border-slate-200 dark:border-slate-800 pt-3 flex justify-between items-baseline">
                 <span className="text-base font-bold text-slate-900 dark:text-white">Net Payable:</span>

@@ -20,11 +20,11 @@ export function printTaxInvoice(invoice: any) {
     || invoice.invoice_snapshot?.service_charge_description
     || 'Service / Labor Charge'
 
-  const serviceTaxFactor = 18 / 118
-  const serviceGst = Math.round(serviceCharge * serviceTaxFactor * 100) / 100
-  const serviceTaxable = Math.round((serviceCharge - serviceGst) * 100) / 100
-  const serviceCgst = Math.round((serviceGst / 2) * 100) / 100
-  const serviceSgst = Math.round((serviceGst - serviceCgst) * 100) / 100
+  const serviceTaxable = serviceCharge
+  const serviceCgst = Math.round(serviceTaxable * 0.09 * 100) / 100
+  const serviceSgst = Math.round(serviceTaxable * 0.09 * 100) / 100
+  const serviceGst = Math.round((serviceCgst + serviceSgst) * 100) / 100
+  const serviceTotal = Math.round((serviceTaxable + serviceGst) * 100) / 100
 
   const customerName = invoice.customer?.customer_name || invoice.customers?.customer_name || invoice.invoice_snapshot?.customer?.customer_name || 'Counter Customer / Walk-in'
   const customerPhone = invoice.customer?.phone_number || invoice.customers?.phone_number || invoice.invoice_snapshot?.customer?.phone_number || '-'
@@ -79,13 +79,11 @@ export function printTaxInvoice(invoice: any) {
     const rate = parseFloat(it.unit_price || it.unit_price_snapshot || 0)
     const discount = parseFloat(it.discount_applied || it.discount || 0)
     const gross = rate * qty
-    const lineTotal = Math.max(0, gross - discount)
+    const taxable = Math.max(0, gross - discount)
     const gstRate = parseFloat(it.gst_rate_snapshot || 18)
-    const taxFactor = gstRate / (100 + gstRate)
-    const itemGst = Math.round(lineTotal * taxFactor * 100) / 100
-    const taxable = Math.round((lineTotal - itemGst) * 100) / 100
-    const cgstVal = Math.round((itemGst / 2) * 100) / 100
-    const sgstVal = Math.round((itemGst - cgstVal) * 100) / 100
+    const cgstVal = Math.round(taxable * (gstRate / 2 / 100) * 100) / 100
+    const sgstVal = Math.round(taxable * (gstRate / 2 / 100) * 100) / 100
+    const lineTotal = Math.round((taxable + cgstVal + sgstVal) * 100) / 100
 
     totalQty += qty
     totalGross += gross
@@ -132,11 +130,11 @@ export function printTaxInvoice(invoice: any) {
   if (serviceCharge > 0) {
     const sHsn = '998713'
     totalQty += 1
-    totalGross += serviceCharge
+    totalGross += serviceTaxable
     totalTaxable += serviceTaxable
     totalCgstVal += serviceCgst
     totalSgstVal += serviceSgst
-    totalLineAmount += serviceCharge
+    totalLineAmount += serviceTotal
 
     if (!hsnMap[sHsn]) {
       hsnMap[sHsn] = { taxable: 0, cgst: 0, sgst: 0, igst: 0 }
@@ -146,7 +144,7 @@ export function printTaxInvoice(invoice: any) {
     hsnMap[sHsn].sgst += serviceSgst
 
     serviceRowHtml = `
-      <tr style="background: #fafafa;">
+      <tr style="background: transparent;">
         <td style="text-align: center;">${items.length + 1}</td>
         <td>
           <div style="font-weight: 700; color: #8a3b0f;">${serviceChargeDesc}</div>
@@ -154,8 +152,8 @@ export function printTaxInvoice(invoice: any) {
         </td>
         <td style="text-align: center; font-family: monospace;">${sHsn}</td>
         <td style="text-align: center; font-weight: 700;">1.00</td>
-        <td style="text-align: right; font-family: monospace;">${serviceCharge.toFixed(2)}</td>
-        <td style="text-align: right; font-family: monospace;">${serviceCharge.toFixed(2)}</td>
+        <td style="text-align: right; font-family: monospace;">${serviceTaxable.toFixed(2)}</td>
+        <td style="text-align: right; font-family: monospace;">${serviceTaxable.toFixed(2)}</td>
         <td style="text-align: right; font-family: monospace;">0.00</td>
         <td style="text-align: right; font-family: monospace;">${serviceTaxable.toFixed(2)}</td>
         <td style="text-align: right; font-family: monospace;">${serviceTaxable.toFixed(2)}</td>
@@ -164,7 +162,7 @@ export function printTaxInvoice(invoice: any) {
         <td style="text-align: center;">9.00</td>
         <td style="text-align: right; font-family: monospace;">${serviceSgst.toFixed(2)}</td>
         <td style="text-align: right; font-family: monospace;">0.00</td>
-        <td style="text-align: right; font-family: monospace; font-weight: 700; color: #8a3b0f;">${serviceCharge.toFixed(2)}</td>
+        <td style="text-align: right; font-family: monospace; font-weight: 700; color: #8a3b0f;">${serviceTotal.toFixed(2)}</td>
       </tr>
     `
   }
@@ -219,6 +217,7 @@ export function printTaxInvoice(invoice: any) {
             margin: 0 auto;
             position: relative;
             background: #ffffff;
+            min-height: 980px;
           }
           /* Watermark Logo */
           .watermark-bg {
@@ -228,7 +227,7 @@ export function printTaxInvoice(invoice: any) {
             transform: translate(-50%, -50%);
             width: 78%;
             max-width: 580px;
-            opacity: 0.08;
+            opacity: 0.12;
             pointer-events: none;
             z-index: 0;
           }
@@ -261,7 +260,7 @@ export function printTaxInvoice(invoice: any) {
             padding: 3px 2px;
           }
           .item-table th {
-            background-color: #f1f5f9;
+            background-color: transparent;
             font-weight: 700;
             text-align: center;
             font-size: 8px;
@@ -276,7 +275,7 @@ export function printTaxInvoice(invoice: any) {
             border: 1px solid #000000;
           }
           .rma-table th {
-            background-color: #f1f5f9;
+            background-color: transparent;
             font-weight: 700;
             text-align: center;
             font-size: 8px;
@@ -290,41 +289,29 @@ export function printTaxInvoice(invoice: any) {
           <img src="${GNAPIKA_WATERMARK_BASE64}" class="watermark-bg" alt="Watermark" />
 
           <div class="content-layer">
-            <!-- Top Meta Line -->
-            <div style="display: flex; justify-content: space-between; align-items: baseline; font-size: 9px; padding: 0 2px 2px 2px;">
-              <span style="font-weight: 600;">original</span>
-              <span style="font-family: monospace; font-weight: 700;">Invoice No: ${invoiceNumber}</span>
-              <span>Page No: 1/1</span>
-            </div>
+            
 
             <!-- Header Box -->
-            <div class="box-border" style="padding: 6px 10px; display: flex; align-items: center; justify-content: space-between; gap: 12px;">
-              <div style="flex-shrink: 0; width: 180px;">
-                <img src="${GNAPIKA_LOGO_BASE64}" style="width: 100%; height: auto; max-height: 52px; object-fit: contain;" alt="Logo" />
+            <div class="box-border" style="padding: 10px 14px; display: flex; align-items: center; justify-content: space-between; gap: 16px;">
+              <div style="flex-shrink: 0; width: 320px; max-width: 48%;">
+                <img src="${GNAPIKA_LOGO_BASE64}" style="width: 100%; height: auto; max-height: 72px; object-fit: contain; display: block;" alt="Gnapika Computer Shopee" />
               </div>
-              <div style="flex-grow: 1; text-align: center;">
-                <div style="font-size: 17px; font-weight: 900; letter-spacing: 0.5px; text-transform: uppercase;">
-                  ${SHOP_DETAILS.name}
-                </div>
-                <div style="font-size: 8.5px; margin-top: 1px; color: #111;">
-                  ${SHOP_DETAILS.address}
-                </div>
-                <div style="font-size: 8.5px; margin-top: 1px;">
-                  Phone No: <strong>${SHOP_DETAILS.phone}</strong> &nbsp;|&nbsp; Email: <strong>${SHOP_DETAILS.email}</strong>
-                </div>
-                <div style="font-size: 9px; margin-top: 1px;">
-                  GSTIN : <strong>${SHOP_DETAILS.gstin}</strong> &nbsp;|&nbsp; PAN : <strong>${SHOP_DETAILS.pan || 'BEYPC1417G'}</strong>
-                </div>
+              <div style="text-align: left; font-size: 8.8px; line-height: 1.35; color: #000000;">
+                <div>D.No. 38-1-7, Opposite Indira Towers, American Hospital Road, MG Road</div>
+                <div>(near P.W.D Grounds / Rythu Bazar), Vijayawada</div>
+                <div style="margin-top: 6px;">Email: ${SHOP_DETAILS.email}</div>
+                <div>Phone No: &nbsp;${SHOP_DETAILS.phone}</div>
+                <div>GSTIN : &nbsp; ${SHOP_DETAILS.gstin}</div>
               </div>
             </div>
 
             <!-- Tax Invoice Banner Title -->
-            <div style="text-align: center; font-weight: 900; font-size: 14px; padding: 4px 0; text-transform: uppercase; letter-spacing: 0.5px;">
-              Tax Invoice
+            <div style="text-align: center; font-weight: 900; font-size: 14px; padding: 6px 0; margin-top: 6px; text-transform: uppercase; letter-spacing: 0.5px;">
+              Invoice
             </div>
 
             <!-- 3-Column Party & Invoice Details Box -->
-            <div class="box-border">
+            <div class="box-border" style="margin-top: 8px;">
               <div style="display: flex;">
                 <!-- Column 1: Bill To Party -->
                 <div style="width: 35%; padding: 5px 7px;" class="border-r">
@@ -332,10 +319,6 @@ export function printTaxInvoice(invoice: any) {
                   <div style="font-size: 8.5px; color: #333;">Party Name &amp; Address:</div>
                   <div class="bold" style="font-size: 11px; margin-top: 1px;">${customerName}</div>
                   <div style="font-size: 9px; margin-top: 1px;">${customerAddress}</div>
-                  <div style="font-size: 8.5px; margin-top: 2px;">City : VIJAYAWADA &nbsp; Pin: 520002</div>
-                  <div style="font-size: 8.5px;">State : ANDHRA PRADESH</div>
-                  <div style="font-size: 8.5px;">GSTIN : <strong>${customerGstin}</strong></div>
-                  <div style="font-size: 8.5px;">Mobile : <strong>${customerPhone}</strong></div>
                 </div>
 
                 <!-- Column 2: Ship To Party -->
@@ -344,10 +327,6 @@ export function printTaxInvoice(invoice: any) {
                   <div style="font-size: 8.5px; color: #333;">Party Name &amp; Address:</div>
                   <div class="bold" style="font-size: 11px; margin-top: 1px;">${customerName}</div>
                   <div style="font-size: 9px; margin-top: 1px;">${customerAddress}</div>
-                  <div style="font-size: 8.5px; margin-top: 2px;">City : VIJAYAWADA &nbsp; Pin: 520002</div>
-                  <div style="font-size: 8.5px;">State : ANDHRA PRADESH</div>
-                  <div style="font-size: 8.5px;">GSTIN : <strong>${customerGstin}</strong></div>
-                  <div style="font-size: 8.5px;">Mobile : <strong>${customerPhone}</strong></div>
                 </div>
 
                 <!-- Column 3: Invoice Info -->
@@ -361,24 +340,12 @@ export function printTaxInvoice(invoice: any) {
                       <td style="padding: 1px 0; color: #333;">Date :</td>
                       <td style="padding: 1px 0; text-align: right; font-family: monospace; font-weight: 700;">${date}</td>
                     </tr>
-                    <tr>
-                      <td style="padding: 1px 0; color: #333;">PO NO :</td>
-                      <td style="padding: 1px 0; text-align: right;">-</td>
-                    </tr>
-                    <tr>
-                      <td style="padding: 1px 0; color: #333;">PO Date :</td>
-                      <td style="padding: 1px 0; text-align: right;">-</td>
-                    </tr>
-                    <tr>
-                      <td style="padding: 1px 0; color: #333;">Cost Center :</td>
-                      <td style="padding: 1px 0; text-align: right; font-weight: 600;">MAIN-VJA</td>
-                    </tr>
                   </table>
                 </div>
               </div>
 
               <!-- ACK / IRN Row -->
-              <div class="border-t" style="display: flex; justify-content: space-between; padding: 2px 8px; font-size: 8.5px; background: #fafafa;">
+              <div class="border-t" style="display: flex; justify-content: space-between; padding: 2px 8px; font-size: 8.5px; background: transparent;">
                 <span>ACK No : </span>
                 <span>Ack Dt : </span>
                 <span>IRN No : </span>
@@ -386,7 +353,7 @@ export function printTaxInvoice(invoice: any) {
             </div>
 
             <!-- Items Table (15 Columns Exactly Per Reference Mockup) -->
-            <table class="item-table" style="margin-top: 4px;">
+            <table class="item-table" style="margin-top: 10px;">
               <thead>
                 <tr>
                   <th style="width: 24px;">S<br/>No</th>
@@ -410,7 +377,7 @@ export function printTaxInvoice(invoice: any) {
                 ${itemRowsHtml}
                 ${serviceRowHtml}
                 <!-- Total Row -->
-                <tr style="font-weight: 700; background: #f8fafc;">
+                <tr style="font-weight: 700; background: transparent;">
                   <td colspan="3" style="text-align: center;">Total</td>
                   <td style="text-align: center; font-family: monospace;">${totalQty.toFixed(2)}</td>
                   <td></td>
@@ -429,7 +396,7 @@ export function printTaxInvoice(invoice: any) {
             </table>
 
             <!-- Summary & Totals Box (Below Item Table) -->
-            <div class="box-border" style="margin-top: 4px; display: flex;">
+            <div class="box-border" style="margin-top: 10px; display: flex;">
               <!-- Left Side: Value in Words & PDC Terms -->
               <div style="width: 58%; padding: 6px 8px;" class="border-r">
                 <div style="font-size: 9.5px;">
@@ -439,7 +406,7 @@ export function printTaxInvoice(invoice: any) {
                 <div style="font-size: 9px; margin-top: 6px;">
                   <span class="bold">Reverse Charge For this Invoice :</span> NA
                 </div>
-                <div style="margin-top: 8px; border: 1px solid #777; padding: 4px 6px; font-size: 8px; line-height: 1.3; background: #fafafa;">
+                <div style="margin-top: 8px; border: 1px solid #777; padding: 4px 6px; font-size: 8px; line-height: 1.3; background: transparent;">
                   <div class="bold">21 Days PDC from the date of billing/All payments Should be in the name of GNAPIKA COMPUTER SHOPEE ONLY</div>
                   <div style="color: #444; font-style: italic;">(Your Total Outstanding is including Post Dated Cheques)</div>
                 </div>
@@ -479,7 +446,7 @@ export function printTaxInvoice(invoice: any) {
                   </tr>
                   ` : ''}
                   ${balanceDue > 0 ? `
-                  <tr style="font-size: 9.5px; color: #b91c1c; font-weight: 900; background: #fee2e2;">
+                  <tr style="font-size: 9.5px; color: #b91c1c; font-weight: 900; background: transparent;">
                     <td style="padding: 2px 4px;">Balance Due :</td>
                     <td style="padding: 2px 4px; text-align: right; font-family: monospace;">₹ ${balanceDue.toFixed(2)}</td>
                   </tr>
@@ -494,8 +461,8 @@ export function printTaxInvoice(invoice: any) {
             </div>
 
             <!-- RMA DETAILS (GST TAX SUMMARY) Box -->
-            <div class="box-border" style="margin-top: 4px;">
-              <div style="font-weight: 800; font-size: 9px; padding: 2px 6px; background: #f1f5f9; border-bottom: 1px solid #000; text-transform: uppercase;">
+            <div class="box-border" style="margin-top: 10px;">
+              <div style="font-weight: 800; font-size: 9px; padding: 2px 6px; background: transparent; border-bottom: 1px solid #000; text-transform: uppercase;">
                 RMA DETAILS (GST TAX BREAKUP)
               </div>
               <table class="rma-table">
@@ -518,7 +485,7 @@ export function printTaxInvoice(invoice: any) {
                 </thead>
                 <tbody>
                   ${rmaRowsHtml}
-                  <tr style="font-weight: 700; background: #f8fafc;">
+                  <tr style="font-weight: 700; background: transparent;">
                     <td style="padding: 3px 6px; text-align: center;">Total</td>
                     <td style="padding: 3px 6px; text-align: right; font-family: monospace;">${totalTaxable.toFixed(2)}</td>
                     <td></td>
@@ -532,23 +499,15 @@ export function printTaxInvoice(invoice: any) {
               </table>
             </div>
 
-            <!-- Footer Box: Terms, Bank Details & Signature -->
-            <div class="box-border" style="margin-top: 4px; padding: 6px 8px;">
+            <!-- Footer Box: Terms & Signature -->
+            <div class="box-border" style="margin-top: 10px; padding: 6px 8px;">
               <!-- Meta Row -->
               <div style="display: flex; justify-content: space-between; font-size: 8.5px; margin-bottom: 4px;">
                 <span>Time: <strong>${time}</strong></span>
                 <span>Prepared By: <strong>Gnapika Computer Shopee</strong></span>
               </div>
 
-              <!-- Bank Details Line -->
-              <div style="font-size: 8.5px; background: #f8fafc; border: 1px dashed #999; padding: 3px 6px; margin-bottom: 6px;">
-                <strong>Bank Details:</strong> &nbsp;
-                A/C NO: <span style="font-family: monospace; font-weight: 700;">${SHOP_DETAILS.bankDetails.accountNo}</span> &nbsp;|&nbsp;
-                BANK: <strong>${SHOP_DETAILS.bankDetails.bankName}</strong> &nbsp;|&nbsp;
-                IFSC: <span style="font-family: monospace; font-weight: 700;">${SHOP_DETAILS.bankDetails.ifsc}</span> &nbsp;|&nbsp;
-                BRANCH: <strong>${SHOP_DETAILS.bankDetails.branch}</strong> &nbsp;|&nbsp;
-                UPI: <strong>${SHOP_DETAILS.bankDetails.upiId}</strong>
-              </div>
+              
 
               <!-- Terms & Signatory Grid -->
               <div style="display: flex; justify-content: space-between; align-items: flex-end; gap: 12px;">

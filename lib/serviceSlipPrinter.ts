@@ -1,5 +1,6 @@
 // lib/serviceSlipPrinter.ts
 import { SHOP_DETAILS, formatCurrency } from './formatters'
+import { extractAccessories, cleanProblemDescription } from './serviceHelpers'
 
 export function printDualServiceSlip(service: any) {
   const printWindow = window.open('', '_blank')
@@ -20,7 +21,8 @@ export function printDualServiceSlip(service: any) {
     hour: '2-digit',
     minute: '2-digit',
   })
-  const problem = service.problem_description || 'General Service & Inspection'
+  const problem = cleanProblemDescription(service.problem_description) || 'General Service & Inspection'
+  const accessories = extractAccessories(service)
   const diagnosis = service.diagnosis || 'Standard Hardware Diagnostic'
   const cost = parseFloat(service.estimated_cost || 0)
   const serial = service.serial_number || 'Not Specified'
@@ -214,7 +216,7 @@ export function printDualServiceSlip(service: any) {
       </head>
       <body>
         <!-- ============================================== -->
-        <!-- SLIP 1: CUSTOMER ACKNOWLEDGMENT SLIP           -->
+        <!-- SLIP 1: CUSTOMER Reference SLIP           -->
         <!-- ============================================== -->
         <div class="slip">
           <div class="header">
@@ -227,7 +229,7 @@ export function printDualServiceSlip(service: any) {
               </div>
             </div>
             <div class="ref-box">
-              <span class="badge badge-cust">Customer Acknowledgment</span>
+              <span class="badge badge-cust">Customer Reference</span>
               <div class="ref-number">${ref}</div>
               <div style="font-size: 10.5px; color: #64748b; margin-top: 2px;">
                 Intake Date: <strong>${date} ${time}</strong>
@@ -264,30 +266,22 @@ export function printDualServiceSlip(service: any) {
           </div>
 
           <div class="checklist-box">
-            <strong>Intake Accessories &amp; Physical Check:</strong>
-            <div class="checklist-items">
-              <span>[ &check; ] Device Received</span>
-              <span>[ ] Power Adapter</span>
-              <span>[ ] Power Cable</span>
-              <span>[ ] Laptop Bag</span>
-              <span>[ ] External Mouse/Drive</span>
+            <strong style="color: #0f172a; font-size: 11px;">Accessories Received from Customer:</strong>
+            <div style="margin-top: 5px; display: flex; flex-wrap: wrap; gap: 6px;">
+              ${accessories.length > 0
+                ? accessories.map((acc: string) => `
+                    <span style="display: inline-flex; align-items: center; gap: 4px; background: #ffffff; border: 1px solid #94a3b8; border-radius: 4px; padding: 2px 8px; font-weight: 700; color: #0f172a; font-size: 10px;">
+                      <span style="color: #16a34a; font-weight: 900;">&#10004;</span> ${acc}
+                    </span>
+                  `).join('')
+                : '<span style="color: #64748b; font-style: italic; font-weight: 600;">[ None &mdash; Device Received Only ]</span>'
+              }
             </div>
           </div>
 
-          <div class="terms">
-            <strong>Customer Instructions &amp; Terms:</strong>
-            <ol>
-              <li>Please produce this original acknowledgment slip at the time of collecting your device.</li>
-              <li>Customers are strictly requested to take backup of important data. ${SHOP_DETAILS.name} is not responsible for any data loss.</li>
-              <li>Estimated cost and timeline are tentative and subject to bench diagnostic inspection.</li>
-              <li>Equipment not claimed within 30 days of completion notification will not be the center's responsibility.</li>
-            </ol>
-          </div>
-
+            <div style="height: 15px;"></div>
           <div class="sig-row">
-            <div class="sig-box">Customer Signature</div>
-            <div style="font-size: 10px; color: #94a3b8;">* Tracking URL available via QR / Reference ID</div>
-            <div class="sig-box">For ${SHOP_DETAILS.name}</div>
+            <div class="sig-box">${SHOP_DETAILS.name}</div>
           </div>
         </div>
 
@@ -340,26 +334,36 @@ export function printDualServiceSlip(service: any) {
             <div style="margin-top: 3px; font-weight: 600;">${problem}</div>
           </div>
 
-          <!-- Bench Technician Notes Table -->
-          <div style="border: 1px solid #cbd5e1; border-radius: 8px; padding: 10px; margin-bottom: 12px; background: #fafafa; font-size: 11px;">
-            <div style="font-weight: 800; text-transform: uppercase; color: #475569; margin-bottom: 6px;">
-              Technician Bench Inspection &amp; Action Taken:
-            </div>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px;">
-              <div>Power Status on Bench: [ ] OK &nbsp; [ ] No Power &nbsp; [ ] Shorting</div>
-              <div>Display Status: [ ] OK &nbsp; [ ] Blank &nbsp; [ ] Lines/Cracked</div>
-              <div>Keyboard / Touchpad: [ ] OK &nbsp; [ ] Faulty &nbsp; [ ] Not Tested</div>
-              <div>Storage / RAM: [ ] Detected &nbsp; [ ] Bad Sectors &nbsp; [ ] Replaced</div>
-            </div>
-            <div style="border-top: 1px dashed #cbd5e1; padding-top: 6px;">
-              <strong>Parts Replaced / Required:</strong> ____________________________________________________
+          <!-- Intake Accessories Box for Technician & Shop Owner -->
+          <div style="border: 1px solid #fed7aa; border-radius: 8px; padding: 8px 12px; margin-bottom: 12px; background: #fff7ed; font-size: 11px;">
+            <strong style="color: #c2410c; font-size: 11px;">Customer Accessories Received (Must Return on Delivery):</strong>
+            <div style="margin-top: 5px; display: flex; flex-wrap: wrap; gap: 6px;">
+              ${accessories.length > 0
+                ? accessories.map((acc: string) => `
+                    <span style="display: inline-flex; align-items: center; gap: 4px; background: #ffffff; border: 1px solid #f97316; border-radius: 4px; padding: 2px 8px; font-weight: 700; color: #9a3412; font-size: 10px;">
+                      <span style="color: #ea580c; font-weight: 900;">&#10004;</span> ${acc}
+                    </span>
+                  `).join('')
+                : '<span style="color: #78716c; font-style: italic; font-weight: 600;">[ None &mdash; Device Received Only ]</span>'
+              }
             </div>
           </div>
+          
+          <div class="terms">
+            <strong>Customer Terms and Conditions:</strong>
+            <ol>
+              <li>Please produce this original acknowledgment slip at the time of collecting your device.</li>
+              <li>Customers are strictly requested to take backup of important data. ${SHOP_DETAILS.name} is not responsible for any data loss.</li>
+              <li>Estimated cost and timeline are tentative and subject to bench diagnostic inspection.</li>
+              <li>Equipment not claimed within 30 days of completion notification will not be the center's responsibility.</li>
+            </ol>
+          </div>
+
+          <div style="height: 12px;"></div>
 
           <div class="sig-row">
-            <div class="sig-box">Assigned Technician</div>
-            <div class="sig-box">QC &amp; Final Bench Tested</div>
-            <div class="sig-box">Customer Delivered &amp; Signed</div>
+            <div style="width: 100%; margin-bottom: 8px; font-size: 11px; font-weight: 700;">I ACCEPT THE ABOVE TERMS AND CONDITIONS</div>
+            <div class="sig-box">Customer Signature</div>
           </div>
         </div>
 
