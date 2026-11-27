@@ -217,7 +217,10 @@ export function printTaxInvoice(invoice: any) {
             margin: 0 auto;
             position: relative;
             background: #ffffff;
-            min-height: 980px;
+            min-height: 275mm;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
           }
           /* Watermark Logo */
           .watermark-bg {

@@ -141,7 +141,7 @@ export function TaxInvoicePaperView({ invoice }: { invoice: any }) {
   const roundOff = Math.round((roundedTarget - calculatedGrandTotal) * 100) / 100
 
   return (
-    <div className="relative bg-white text-black p-4 sm:p-6 border border-black shadow-lg mx-auto max-w-[850px] font-sans text-[10px] leading-tight select-text overflow-hidden">
+    <div className="relative bg-white text-black p-4 sm:p-6 border border-black shadow-lg mx-auto max-w-[850px] min-h-[1100px] font-sans text-[10px] leading-tight select-text overflow-hidden flex flex-col justify-between">
       {/* Background Watermark Logo */}
       <img
         src={GNAPIKA_WATERMARK_BASE64}

@@ -16,6 +16,8 @@ import {
   UserCheck,
   ShieldCheck,
   FileSpreadsheet,
+  CalendarCheck,
+  Wallet,
 } from 'lucide-react'
 import { HeaderNav } from '@/components/dashboard/HeaderNav'
 
@@ -28,6 +30,8 @@ const allNavigation = [
   { name: 'Inventory', href: '/dashboard/inventory', icon: Warehouse, perm: 'inventory' },
   { name: 'Purchases', href: '/dashboard/purchases', icon: ShoppingCart, perm: 'purchases' },
   { name: 'Reports', href: '/dashboard/reports', icon: BarChart3, perm: 'reports' },
+  { name: 'Attendance', href: '/dashboard/attendance', icon: CalendarCheck, perm: 'staff_only' },
+  { name: 'Daily Expenses', href: '/dashboard/expenses', icon: Wallet, perm: 'staff_only' },
   { name: 'Staff & Roles', href: '/dashboard/staff', icon: UserCheck, perm: 'staff_only' },
 ]
 

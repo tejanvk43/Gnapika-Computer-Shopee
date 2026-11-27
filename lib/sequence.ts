@@ -133,12 +133,12 @@ export async function generateNextServiceInvoiceNumber(organizationId: string): 
 
 /**
  * Generates the next sequential quotation number in the format:
- * GCS/<Financial Year>/<Sequential Number>
- * Example: GCS/26-27/112, GCS/26-27/113 ...
+ * GCS<Year>/Quot/<Sequential Number>
+ * Example: GCS2026/Quot/1, GCS2026/Quot/2, GCS2026/Quot/3 ...
  */
 export async function generateNextQuotationNumber(organizationId: string): Promise<string> {
-  const fy = getFinancialYear()
-  const prefix = `GCS/${fy}/`
+  const year = new Date().getFullYear()
+  const prefix = `GCS${year}/Quot/`
 
   try {
     // 1. Try querying quotations table if present
@@ -146,14 +146,14 @@ export async function generateNextQuotationNumber(organizationId: string): Promi
       .from('quotations')
       .select('quotation_number')
       .eq('organization_id', organizationId)
-      .ilike('quotation_number', `${prefix}%`)
+      .or(`quotation_number.ilike.${prefix}%,quotation_number.ilike.GCS%/Quot/%`)
 
-    let maxSeq = 111 // Default start at 111 so next is 112 as in reference mockup
+    let maxSeq = 0
     if (!error && rows && rows.length > 0) {
       for (const r of rows) {
         const qNum = String(r.quotation_number || '').trim()
         const parts = qNum.split('/')
-        if (parts.length >= 2) {
+        if (parts.length >= 3) {
           const num = parseInt(parts[parts.length - 1], 10)
           if (!isNaN(num) && num > maxSeq) {
             maxSeq = num
@@ -171,9 +171,9 @@ export async function generateNextQuotationNumber(organizationId: string): Promi
       if (auditRows && auditRows.length > 0) {
         for (const row of auditRows) {
           const qNum = String(row.details?.quotation_number || '').trim()
-          if (qNum.startsWith(prefix)) {
+          if (qNum.includes('/Quot/')) {
             const parts = qNum.split('/')
-            if (parts.length >= 2) {
+            if (parts.length >= 3) {
               const num = parseInt(parts[parts.length - 1], 10)
               if (!isNaN(num) && num > maxSeq) {
                 maxSeq = num
@@ -188,7 +188,7 @@ export async function generateNextQuotationNumber(organizationId: string): Promi
     return `${prefix}${nextSeq}`
   } catch (err) {
     console.warn('Sequence generation fallback for quotation:', err)
-    return `${prefix}112`
+    return `${prefix}1`
   }
 }
 

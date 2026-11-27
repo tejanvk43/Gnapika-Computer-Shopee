@@ -17,6 +17,9 @@ import {
   Percent,
   CheckCircle2,
   Info,
+  Search,
+  RefreshCw,
+  X,
 } from 'lucide-react'
 import Link from 'next/link'
 
@@ -120,12 +123,73 @@ export function QuotationEditor({ initialData, nextQuoteNumber, existingCompanie
     }
   }, [sameAsBuyer, companyName, companyAddress, companyState])
 
-  // Select company from existing
-  const handleSelectCompany = (comp: { name: string; address?: string; gstin?: string; phone?: string }) => {
-    setCompanyName(comp.name)
+  // Live Company Search State
+  const [companySearchResults, setCompanySearchResults] = useState<any[]>([])
+  const [searchingCompany, setSearchingCompany] = useState(false)
+  const [showCompanyDropdown, setShowCompanyDropdown] = useState(false)
+
+  // Search company dynamically via API + fallback to existingCompanies
+  const handleCompanyInputChange = async (val: string) => {
+    setCompanyName(val)
+    const q = val.trim()
+    if (!q) {
+      setCompanySearchResults([])
+      setShowCompanyDropdown(false)
+      return
+    }
+
+    setShowCompanyDropdown(true)
+    setSearchingCompany(true)
+
+    try {
+      const res = await fetch(`/api/customers?q=${encodeURIComponent(q)}`)
+      if (res.ok) {
+        const data = await res.json()
+        if (Array.isArray(data)) {
+          setCompanySearchResults(data)
+        }
+      } else {
+        // Fallback filter locally on existingCompanies
+        const filtered = existingCompanies.filter((c) =>
+          c.name.toLowerCase().includes(q.toLowerCase()) ||
+          (c.gstin && c.gstin.toLowerCase().includes(q.toLowerCase())) ||
+          (c.phone && c.phone.includes(q))
+        )
+        setCompanySearchResults(
+          filtered.map((c) => ({
+            customer_name: c.name,
+            gstin: c.gstin,
+            address: c.address,
+            phone_number: c.phone,
+          }))
+        )
+      }
+    } catch {
+      const filtered = existingCompanies.filter((c) =>
+        c.name.toLowerCase().includes(q.toLowerCase())
+      )
+      setCompanySearchResults(
+        filtered.map((c) => ({
+          customer_name: c.name,
+          gstin: c.gstin,
+          address: c.address,
+          phone_number: c.phone,
+        }))
+      )
+    } finally {
+      setSearchingCompany(false)
+    }
+  }
+
+  // Select company from existing or search results
+  const handleSelectCompany = (comp: { customer_name?: string; name?: string; address?: string; gstin?: string; phone_number?: string; phone?: string; email?: string }) => {
+    const name = comp.customer_name || comp.name || ''
+    setCompanyName(name)
     if (comp.address) setCompanyAddress(comp.address)
     if (comp.gstin) setCompanyGstin(comp.gstin)
-    if (comp.phone) setCompanyPhone(comp.phone)
+    if (comp.phone_number || comp.phone) setCompanyPhone(comp.phone_number || comp.phone || '')
+    if (comp.email) setCompanyEmail(comp.email)
+    setShowCompanyDropdown(false)
   }
 
   // Recalculate item line values
@@ -409,19 +473,6 @@ export function QuotationEditor({ initialData, nextQuoteNumber, existingCompanie
               />
             </div>
           </div>
-
-          <div>
-            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-              Payment Terms
-            </label>
-            <input
-              type="text"
-              value={modeTermsOfPayment}
-              onChange={(e) => setModeTermsOfPayment(e.target.value)}
-              placeholder="e.g. 30 Days Credit, 50% Advance"
-              className="w-full px-3.5 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/20"
-            />
-          </div>
         </div>
 
         {/* Company & Buyer Details (7 cols) */}
@@ -450,18 +501,78 @@ export function QuotationEditor({ initialData, nextQuoteNumber, existingCompanie
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
+            <div className="relative">
               <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                Company Name <span className="text-red-500">*</span>
+                Company / Client Name <span className="text-red-500">*</span>
               </label>
-              <input
-                type="text"
-                required
-                value={companyName}
-                onChange={(e) => setCompanyName(e.target.value)}
-                placeholder="e.g. Sports Authority Of Andhra Pradesh"
-                className="w-full px-3.5 py-2 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/20"
-              />
+              <div className="relative">
+                <input
+                  type="text"
+                  required
+                  value={companyName}
+                  onChange={(e) => handleCompanyInputChange(e.target.value)}
+                  onFocus={() => {
+                    if (companyName.trim()) handleCompanyInputChange(companyName)
+                  }}
+                  placeholder="Type company name, phone, or GSTIN to search..."
+                  className="w-full pl-8 pr-8 py-2 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/20"
+                />
+                <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                {searchingCompany && (
+                  <RefreshCw className="w-3.5 h-3.5 absolute right-2.5 top-1/2 -translate-y-1/2 text-primary animate-spin" />
+                )}
+                {!searchingCompany && companyName && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCompanyName('')
+                      setCompanySearchResults([])
+                      setShowCompanyDropdown(false)
+                    }}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+
+              {/* Autocomplete Suggestions Dropdown */}
+              {showCompanyDropdown && companySearchResults.length > 0 && (
+                <div className="absolute left-0 right-0 top-full mt-1 z-50 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xl max-h-56 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800">
+                  <div className="p-2 text-[10px] uppercase font-bold text-slate-400 bg-slate-50/70 dark:bg-slate-800/40 flex items-center justify-between">
+                    <span>Matching Companies ({companySearchResults.length})</span>
+                    <button
+                      type="button"
+                      onClick={() => setShowCompanyDropdown(false)}
+                      className="text-slate-400 hover:text-slate-600 text-[10px]"
+                    >
+                      Close ✕
+                    </button>
+                  </div>
+                  {companySearchResults.map((cust, idx) => (
+                    <button
+                      key={cust.id || idx}
+                      type="button"
+                      onClick={() => handleSelectCompany(cust)}
+                      className="w-full p-2.5 text-left hover:bg-primary/5 dark:hover:bg-primary/10 transition flex flex-col gap-0.5"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-slate-900 dark:text-white text-xs">
+                          {cust.customer_name || cust.name}
+                        </span>
+                        {cust.gstin && (
+                          <span className="text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                            GST: {cust.gstin}
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-[11px] text-slate-500 truncate">
+                        {cust.address || cust.phone_number || 'Registered Client'}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
             <div>
               <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
@@ -542,7 +653,165 @@ export function QuotationEditor({ initialData, nextQuoteNumber, existingCompanie
         </div>
       </div>
 
-      {/* Grid: 2. Line Items Section */}
+      {/* Grid: 2. Order References, Preferences & Dispatch Particulars */}
+      <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-4 shadow-sm">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 pb-2 border-b border-slate-100 dark:border-slate-800">
+          <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-primary">
+            <Truck className="w-4 h-4" />
+            <span>Order References, Preferences &amp; Dispatch Particulars</span>
+          </div>
+          <span className="text-[11px] text-slate-400">
+            Official quotation header fields (references, order, delivery notes, and terms)
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div>
+            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+              Reference No. &amp; Date
+            </label>
+            <input
+              type="text"
+              value={referenceNoDate}
+              onChange={(e) => setReferenceNoDate(e.target.value)}
+              placeholder="e.g. REF-2026/09"
+              className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/20"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+              Other References &amp; Preferences
+            </label>
+            <input
+              type="text"
+              value={otherReferences}
+              onChange={(e) => setOtherReferences(e.target.value)}
+              placeholder="e.g. Client Preferences / Ref #2"
+              className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/20"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+              Buyer's Order No.
+            </label>
+            <input
+              type="text"
+              value={buyersOrderNo}
+              onChange={(e) => setBuyersOrderNo(e.target.value)}
+              placeholder="e.g. PO/2026/110"
+              className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/20"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+              Buyer's Order Date
+            </label>
+            <input
+              type="text"
+              value={buyersOrderDate}
+              onChange={(e) => setBuyersOrderDate(e.target.value)}
+              placeholder="e.g. 25-Sep-26"
+              className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/20"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+              Delivery Note
+            </label>
+            <input
+              type="text"
+              value={deliveryNote}
+              onChange={(e) => setDeliveryNote(e.target.value)}
+              placeholder="e.g. DN-401"
+              className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/20"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+              Delivery Note Date
+            </label>
+            <input
+              type="text"
+              value={deliveryNoteDate}
+              onChange={(e) => setDeliveryNoteDate(e.target.value)}
+              placeholder="e.g. 25-Sep-26"
+              className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/20"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+              Dispatch Doc No.
+            </label>
+            <input
+              type="text"
+              value={dispatchDocNo}
+              onChange={(e) => setDispatchDocNo(e.target.value)}
+              placeholder="e.g. DOC-991"
+              className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/20"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+              Dispatched Through
+            </label>
+            <input
+              type="text"
+              value={dispatchedThrough}
+              onChange={(e) => setDispatchedThrough(e.target.value)}
+              placeholder="e.g. Direct / By Hand / Courier"
+              className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/20"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+              Destination
+            </label>
+            <input
+              type="text"
+              value={destination}
+              onChange={(e) => setDestination(e.target.value)}
+              placeholder="e.g. Vijayawada"
+              className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/20"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+              Terms of Delivery
+            </label>
+            <input
+              type="text"
+              value={termsOfDelivery}
+              onChange={(e) => setTermsOfDelivery(e.target.value)}
+              placeholder="e.g. Standard Delivery at Site"
+              className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/20"
+            />
+          </div>
+
+          <div className="sm:col-span-2">
+            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+              Mode / Terms of Payment
+            </label>
+            <input
+              type="text"
+              value={modeTermsOfPayment}
+              onChange={(e) => setModeTermsOfPayment(e.target.value)}
+              placeholder="e.g. 100% on delivery / 30 Days Credit"
+              className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/20"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Grid: 3. Line Items Section */}
       <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-4 shadow-sm">
         <div className="flex items-center justify-between">
           <div>
@@ -684,7 +953,7 @@ export function QuotationEditor({ initialData, nextQuoteNumber, existingCompanie
         <div className="lg:col-span-7 bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-4 shadow-sm">
           <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-primary">
             <CreditCard className="w-4 h-4" />
-            <span>Bank &amp; Transport References</span>
+            <span>Company Bank &amp; Payment Details</span>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -696,7 +965,7 @@ export function QuotationEditor({ initialData, nextQuoteNumber, existingCompanie
                 type="text"
                 value={bankName}
                 onChange={(e) => setBankName(e.target.value)}
-                className="w-full px-3 py-1.5 text-xs rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950"
+                className="w-full px-3 py-1.5 text-xs rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white"
               />
             </div>
             <div>
@@ -707,7 +976,7 @@ export function QuotationEditor({ initialData, nextQuoteNumber, existingCompanie
                 type="text"
                 value={bankAcc}
                 onChange={(e) => setBankAcc(e.target.value)}
-                className="w-full px-3 py-1.5 text-xs font-mono rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950"
+                className="w-full px-3 py-1.5 text-xs font-mono rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white"
               />
             </div>
             <div>
@@ -718,51 +987,16 @@ export function QuotationEditor({ initialData, nextQuoteNumber, existingCompanie
                 type="text"
                 value={bankIfsc}
                 onChange={(e) => setBankIfsc(e.target.value)}
-                className="w-full px-3 py-1.5 text-xs rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950"
+                className="w-full px-3 py-1.5 text-xs rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white"
               />
             </div>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
-            <div>
-              <label className="block text-[11px] text-slate-500 mb-1">Buyer's Order No.</label>
-              <input
-                type="text"
-                value={buyersOrderNo}
-                onChange={(e) => setBuyersOrderNo(e.target.value)}
-                placeholder="Order ref"
-                className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950"
-              />
-            </div>
-            <div>
-              <label className="block text-[11px] text-slate-500 mb-1">Order Date</label>
-              <input
-                type="text"
-                value={buyersOrderDate}
-                onChange={(e) => setBuyersOrderDate(e.target.value)}
-                placeholder="DD-MMM-YY"
-                className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950"
-              />
-            </div>
-            <div>
-              <label className="block text-[11px] text-slate-500 mb-1">Dispatched Through</label>
-              <input
-                type="text"
-                value={dispatchedThrough}
-                onChange={(e) => setDispatchedThrough(e.target.value)}
-                placeholder="Carrier / Hand"
-                className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950"
-              />
-            </div>
-            <div>
-              <label className="block text-[11px] text-slate-500 mb-1">Destination</label>
-              <input
-                type="text"
-                value={destination}
-                onChange={(e) => setDestination(e.target.value)}
-                className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950"
-              />
-            </div>
+          <div className="p-3 bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-100 dark:border-slate-800 text-[11px] text-slate-500">
+            <strong>Quotation Declaration:</strong>
+            <p className="mt-0.5 italic">
+              "We declare that this quotation shows the actual price of the goods described and that all particulars are true and correct."
+            </p>
           </div>
         </div>
 

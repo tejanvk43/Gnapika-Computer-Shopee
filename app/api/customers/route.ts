@@ -25,7 +25,7 @@ export async function GET(request: Request) {
 
     const term = (query || phone || '').trim()
     if (term) {
-      dbQuery = dbQuery.or(`customer_name.ilike.%${term}%,phone_number.ilike.%${term}%,alt_phone_number.ilike.%${term}%`)
+      dbQuery = dbQuery.or(`customer_name.ilike.%${term}%,phone_number.ilike.%${term}%,alt_phone_number.ilike.%${term}%,gstin.ilike.%${term}%`)
     }
 
     const { data: customers, error } = await dbQuery

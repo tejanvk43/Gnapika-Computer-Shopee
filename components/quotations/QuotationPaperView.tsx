@@ -89,8 +89,8 @@ export function QuotationPaperView({ quote }: { quote: QuotationData }) {
         </div>
       </div>
 
-      {/* Sheet Container with Border and Low-Opacity Background Watermark */}
-      <div className="relative bg-white text-black p-4 sm:p-6 border border-black shadow-lg mx-auto max-w-[850px] font-sans text-[10px] leading-tight select-text overflow-hidden">
+      {/* Sheet Container with Border, Full A4 Page Height, and Low-Opacity Background Watermark */}
+      <div className="relative bg-white text-black p-4 sm:p-6 border border-black shadow-lg mx-auto max-w-[850px] min-h-[1100px] font-sans text-[10px] leading-tight select-text overflow-hidden flex flex-col justify-between">
         {/* Background Watermark Logo */}
         <img
           src={GNAPIKA_WATERMARK_BASE64}
@@ -98,85 +98,86 @@ export function QuotationPaperView({ quote }: { quote: QuotationData }) {
           className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-4/5 max-w-[550px] opacity-[0.11] z-0 select-none"
         />
 
-        <div className="relative z-10 space-y-2">
-          {/* Header Banner */}
-          <div className="text-center font-black text-sm uppercase tracking-wider py-1 border-b border-black">
-            ESTIMATION/QUOTATION
-          </div>
+        <div className="relative z-10 flex-1 flex flex-col justify-between space-y-2">
+          <div>
+            {/* Header Banner */}
+            <div className="text-center font-black text-sm uppercase tracking-wider py-1 border-b border-black">
+              ESTIMATION/QUOTATION
+            </div>
 
-          {/* Top 2-Column Box (Seller & Buyer / Meta Grid) */}
-          <div className="border border-black">
-            <div className="grid grid-cols-1 md:grid-cols-12 divide-y md:divide-y-0 md:divide-x divide-black text-[9px]">
-              {/* Left Column: Seller & Parties (7 cols) */}
-              <div className="md:col-span-7 p-2.5 flex flex-col justify-between space-y-3">
-                {/* Official Store Logo & Seller Details */}
-                <div className="flex items-center gap-3 pb-2 border-b border-dashed border-gray-400">
-                  <div className="shrink-0 w-36 max-w-[42%]">
-                    <img
-                      src={GNAPIKA_LOGO_BASE64}
-                      alt="Gnapika Computer Shopee"
-                      className="w-full h-auto max-h-14 object-contain block"
-                    />
-                  </div>
-                  <div className="text-left text-[8.5px] leading-snug">
-                    <div className="font-black text-[10px] text-black">M/S GNAPIKA COMPUTER SHOPEE</div>
-                    <div>D.NO.40-72-3/2,SF4, Anjali Apartments, Sitaram Nagar Road,</div>
-                    <div>Vijayawada, NTR, Andhra Pradesh, 520010</div>
-                    <div><strong>GSTIN/UIN:</strong> 37BEYPC1417G1ZG</div>
-                    <div><strong>State Name :</strong> Andhra Pradesh, Code : 37</div>
-                    <div><strong>E-Mail :</strong> gnapikacomputershopee@gmail.com</div>
-                    <div><strong>Phone :</strong> 9493471414</div>
-                  </div>
-                </div>
-
-                {/* Consignee (Ship To) */}
-                <div className="pb-2 border-b border-dashed border-gray-400">
-                  <div className="font-bold underline text-[8.5px] text-gray-700">Consignee (Ship to)</div>
-                  <div className="font-bold text-[10px] text-black mt-0.5">
-                    {quote.consignee_name || quote.company_name}
-                  </div>
-                  <div className="text-[9px] mt-0.5">
-                    {quote.consignee_address || quote.company_address || 'Vijayawada'}
-                  </div>
-                  <div className="text-[8.5px] mt-0.5">
-                    <strong>State Name :</strong> {quote.consignee_state || quote.company_state || 'Andhra Pradesh, Code : 37'}
-                  </div>
-                </div>
-
-                {/* Buyer (Bill To) */}
-                <div>
-                  <div className="font-bold underline text-[8.5px] text-gray-700">Buyer (Bill to)</div>
-                  <div className="font-bold text-[10.5px] text-black mt-0.5">
-                    {quote.company_name}
-                  </div>
-                  <div className="text-[9px] mt-0.5">
-                    {quote.company_address || 'Vijayawada'}
-                  </div>
-                  <div className="text-[8.5px] mt-0.5">
-                    <strong>State Name :</strong> {quote.company_state || 'Andhra Pradesh, Code : 37'}
-                  </div>
-                  {quote.company_gstin && (
-                    <div className="text-[8.5px] font-mono mt-0.5">
-                      <strong>GSTIN/UIN:</strong> {quote.company_gstin}
+            {/* Top 2-Column Box (Seller & Buyer / Meta Grid) */}
+            <div className="border border-black mt-2">
+              <div className="grid grid-cols-1 md:grid-cols-12 divide-y md:divide-y-0 md:divide-x divide-black text-[9px]">
+                {/* Left Column: Seller & Parties (7 cols) */}
+                <div className="md:col-span-7 p-2.5 flex flex-col justify-between space-y-3">
+                  {/* Official Store Logo & Seller Details */}
+                  <div className="flex items-center gap-3 pb-2 border-b border-dashed border-gray-400">
+                    <div className="shrink-0 w-36 max-w-[42%]">
+                      <img
+                        src={GNAPIKA_LOGO_BASE64}
+                        alt="Gnapika Computer Shopee"
+                        className="w-full h-auto max-h-14 object-contain block"
+                      />
                     </div>
-                  )}
-                </div>
-              </div>
+                    <div className="text-left text-[8.5px] leading-snug">
+                      <div className="font-black text-[10px] text-black">M/S GNAPIKA COMPUTER SHOPEE</div>
+                      <div>D.NO.40-72-3/2,SF4, Anjali Apartments, Sitaram Nagar Road,</div>
+                      <div>Vijayawada, NTR, Andhra Pradesh, 520010</div>
+                      <div><strong>GSTIN/UIN:</strong> 37BEYPC1417G1ZG</div>
+                      <div><strong>State Name :</strong> Andhra Pradesh, Code : 37</div>
+                      <div><strong>E-Mail :</strong> gnapikacomputershopee@gmail.com</div>
+                      <div><strong>Phone :</strong> 9493471414</div>
+                    </div>
+                  </div>
 
-              {/* Right Column: Quotation Metadata Table (5 cols) */}
-              <div className="md:col-span-5 p-0">
-                <table className="w-full border-collapse text-[8.5px]">
-                  <tbody>
-                    <tr className="border-b border-black">
-                      <td className="p-1.5 border-r border-black w-1/2">
-                        <div className="text-[7.5px] text-gray-600">Invoice / Quote No.</div>
-                        <div className="font-bold font-mono text-[9.5px] text-black mt-0.5">{quote.quotation_number}</div>
-                      </td>
-                      <td className="p-1.5 w-1/2">
-                        <div className="text-[7.5px] text-gray-600">Dated</div>
-                        <div className="font-bold font-mono text-[9px] text-black mt-0.5">{formattedDate}</div>
-                      </td>
-                    </tr>
+                  {/* Consignee (Ship To) */}
+                  <div className="pb-2 border-b border-dashed border-gray-400">
+                    <div className="font-bold underline text-[8.5px] text-gray-700">Consignee (Ship to)</div>
+                    <div className="font-bold text-[10px] text-black mt-0.5">
+                      {quote.consignee_name || quote.company_name}
+                    </div>
+                    <div className="text-[9px] mt-0.5">
+                      {quote.consignee_address || quote.company_address || 'Vijayawada'}
+                    </div>
+                    <div className="text-[8.5px] mt-0.5">
+                      <strong>State Name :</strong> {quote.consignee_state || quote.company_state || 'Andhra Pradesh, Code : 37'}
+                    </div>
+                  </div>
+
+                  {/* Buyer (Bill To) */}
+                  <div>
+                    <div className="font-bold underline text-[8.5px] text-gray-700">Buyer (Bill to)</div>
+                    <div className="font-bold text-[10.5px] text-black mt-0.5">
+                      {quote.company_name}
+                    </div>
+                    <div className="text-[9px] mt-0.5">
+                      {quote.company_address || 'Vijayawada'}
+                    </div>
+                    <div className="text-[8.5px] mt-0.5">
+                      <strong>State Name :</strong> {quote.company_state || 'Andhra Pradesh, Code : 37'}
+                    </div>
+                    {quote.company_gstin && (
+                      <div className="text-[8.5px] font-mono mt-0.5">
+                        <strong>GSTIN/UIN:</strong> {quote.company_gstin}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Right Column: Quotation Metadata Table (5 cols) */}
+                <div className="md:col-span-5 p-0">
+                  <table className="w-full border-collapse text-[8.5px]">
+                    <tbody>
+                      <tr className="border-b border-black">
+                        <td className="p-1.5 border-r border-black w-1/2">
+                          <div className="text-[7.5px] text-gray-600">Quotation No.</div>
+                          <div className="font-bold font-mono text-[9.5px] text-black mt-0.5">{quote.quotation_number}</div>
+                        </td>
+                        <td className="p-1.5 w-1/2">
+                          <div className="text-[7.5px] text-gray-600">Dated</div>
+                          <div className="font-bold font-mono text-[9px] text-black mt-0.5">{formattedDate}</div>
+                        </td>
+                      </tr>
                     <tr className="border-b border-black">
                       <td className="p-1.5 border-r border-black">
                         <div className="text-[7.5px] text-gray-600">Delivery Note</div>
@@ -392,38 +393,68 @@ export function QuotationPaperView({ quote }: { quote: QuotationData }) {
             <span className="font-bold uppercase">{taxInWords}</span>
           </div>
 
-          {/* Bottom Section: Declaration & Bank Details & Signatory */}
-          <div className="border border-black p-2 grid grid-cols-1 md:grid-cols-12 gap-3 text-[8.5px]">
-            {/* Declaration */}
-            <div className="md:col-span-5 space-y-1">
-              <div className="font-bold underline">Declaration</div>
-              <div className="text-gray-800 leading-snug">
-                We declare that this quotation/estimation shows the actual price of the goods described and that all particulars are true and correct.
-              </div>
-            </div>
-
-            {/* Bank Details */}
-            <div className="md:col-span-4 border border-dashed border-gray-400 p-1.5 rounded-sm">
-              <div className="font-bold underline mb-1">Company's Bank Details</div>
-              <div><strong>Bank Name :</strong> {bankName}</div>
-              <div><strong>A/c No. :</strong> <span className="font-mono font-bold">{bankAcc}</span></div>
-              <div><strong>Branch &amp; IFS Code :</strong> {bankIfsc}</div>
-            </div>
-
-            {/* Signatory */}
-            <div className="md:col-span-3 text-right flex flex-col justify-between pt-1">
-              <div className="font-bold text-[8.5px]">for M/S GNAPIKA COMPUTER SHOPEE</div>
-              <div className="mt-8">
-                <span className="border-t border-dashed border-black pt-1 inline-block font-bold text-[8px]">
-                  Authorised Signatory
-                </span>
-              </div>
-            </div>
           </div>
 
-          {/* Computer Generated Footer */}
-          <div className="text-center text-[7.5px] text-gray-500 pt-1">
-            This is a Computer Generated Estimation/Quotation
+          <div className="space-y-2 mt-4">
+            {/* Bottom Section: Declaration & Bank Details */}
+            <div className="border border-black p-2.5 grid grid-cols-1 md:grid-cols-12 gap-3 text-[8.5px]">
+              {/* Declaration */}
+              <div className="md:col-span-6 space-y-1">
+                <div className="font-bold underline text-[9px]">Declaration</div>
+                <div className="text-gray-800 leading-snug">
+                  We declare that this quotation/estimation shows the actual price of the goods described and that all particulars are true and correct.
+                </div>
+              </div>
+
+              {/* Bank Details */}
+              <div className="md:col-span-6 border border-dashed border-gray-400 p-2 rounded-sm bg-transparent">
+                <div className="font-bold underline text-[9px] mb-1">Company's Bank Details</div>
+                <div><strong>Bank Name :</strong> {bankName}</div>
+                <div><strong>A/c No. :</strong> <span className="font-mono font-bold text-[9.5px]">{bankAcc}</span></div>
+                <div><strong>Branch &amp; IFS Code :</strong> {bankIfsc}</div>
+              </div>
+            </div>
+
+            {/* Dedicated Signature Section with Good Space and Customer Signature Option */}
+            <div className="border border-black p-3.5 grid grid-cols-2 gap-6 bg-transparent">
+              {/* Customer Acceptance & Signature */}
+              <div className="flex flex-col justify-between">
+                <div>
+                  <div className="font-bold text-[9px] text-gray-900 uppercase tracking-wide">
+                    Customer's Acceptance &amp; Stamp
+                  </div>
+                  <div className="text-[7.5px] text-gray-500 italic mt-0.5">
+                    (Sign and stamp to confirm order / estimation)
+                  </div>
+                </div>
+                <div className="h-16 sm:h-20"></div> {/* Generous whitespace for customer signature */}
+                <div>
+                  <div className="border-t border-black inline-block text-center font-bold text-[8.5px] min-w-[190px] pt-1">
+                    Customer Signature &amp; Office Seal
+                  </div>
+                </div>
+              </div>
+
+              {/* Shop Authorised Signatory */}
+              <div className="flex flex-col justify-between text-right items-end">
+                <div>
+                  <div className="font-bold text-[9px] uppercase tracking-wide">
+                    for M/S GNAPIKA COMPUTER SHOPEE
+                  </div>
+                </div>
+                <div className="h-16 sm:h-20"></div> {/* Generous whitespace for shop signature */}
+                <div>
+                  <div className="border-t border-black inline-block text-center font-bold text-[8.5px] min-w-[190px] pt-1">
+                    Authorised Signatory
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Computer Generated Footer */}
+            <div className="text-center text-[7.5px] text-gray-500 pt-1">
+              This is a Computer Generated Estimation/Quotation
+            </div>
           </div>
         </div>
       </div>

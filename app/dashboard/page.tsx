@@ -14,6 +14,9 @@ import {
   Clock,
   CheckCircle2,
   AlertTriangle,
+  CalendarCheck,
+  Wallet,
+  FileSpreadsheet,
 } from 'lucide-react'
 import { LiveCustomerSearch } from '@/components/dashboard/LiveCustomerSearch'
 
@@ -100,6 +103,7 @@ async function getDashboardData() {
   )
 
   return {
+    isOwner: context.isOwner,
     recentInvoices: recentInvoices || [],
     incompleteServices: incompleteServices || [],
     stats: {
@@ -114,7 +118,7 @@ async function getDashboardData() {
 }
 
 export default async function DashboardPage() {
-  const { recentInvoices, incompleteServices, stats } = await getDashboardData()
+  const { isOwner, recentInvoices, incompleteServices, stats } = await getDashboardData()
 
   const statusBadge = (status: string) => {
     switch (status) {
@@ -137,6 +141,51 @@ export default async function DashboardPage() {
       <div>
         <LiveCustomerSearch />
       </div>
+
+      {/* Owner Quick Tools Strip (Exclusive to Owner) */}
+      {isOwner && (
+        <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5 text-white shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs bg-amber-400 text-slate-950 font-black px-2 py-0.5 rounded-full uppercase tracking-wider">
+                Owner Hub
+              </span>
+              <h2 className="text-sm sm:text-base font-bold text-white">
+                Shop Management &amp; Controls
+              </h2>
+            </div>
+            <p className="text-xs text-slate-400 mt-1">
+              Quick access to staff attendance, date-clustered daily expenses, and official company quotations.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2.5">
+            <Link
+              href="/dashboard/attendance"
+              className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-xs font-semibold text-white border border-white/10 transition backdrop-blur-xs"
+            >
+              <CalendarCheck className="w-4 h-4 text-emerald-400" />
+              <span>Staff Attendance</span>
+            </Link>
+
+            <Link
+              href="/dashboard/expenses"
+              className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-xs font-semibold text-white border border-white/10 transition backdrop-blur-xs"
+            >
+              <Wallet className="w-4 h-4 text-rose-400" />
+              <span>Daily Expenses</span>
+            </Link>
+
+            <Link
+              href="/dashboard/quotations"
+              className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-xs font-semibold text-white border border-white/10 transition backdrop-blur-xs"
+            >
+              <FileSpreadsheet className="w-4 h-4 text-blue-400" />
+              <span>Quotations</span>
+            </Link>
+          </div>
+        </div>
+      )}
 
       {/* 4 Action / Stats Cards (Matching Diagram Top Section) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">

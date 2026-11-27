@@ -102,7 +102,7 @@ export function printQuotation(quote: QuotationData) {
   <style>
     @page {
       size: A4 portrait;
-      margin: 10mm;
+      margin: 8mm;
     }
     * {
       box-sizing: border-box;
@@ -122,10 +122,14 @@ export function printQuotation(quote: QuotationData) {
       position: relative;
       width: 100%;
       max-width: 820px;
+      min-height: 276mm;
       margin: 0 auto;
       border: 1.5px solid #000;
-      padding: 8px;
+      padding: 8px 10px;
       background: #fff;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
     }
     .watermark {
       position: absolute;
@@ -337,7 +341,7 @@ export function printQuotation(quote: QuotationData) {
           <table class="meta-table">
             <tr>
               <td style="width: 50%;">
-                <span class="meta-label">Quotation / Invoice No.</span>
+                <span class="meta-label">Quotation No.</span>
                 <span class="meta-val">${quote.quotation_number}</span>
               </td>
               <td style="width: 50%;">
@@ -541,16 +545,16 @@ export function printQuotation(quote: QuotationData) {
         <span style="text-transform: uppercase; font-weight: 700;">${taxInWords}</span>
       </div>
 
-      <!-- Bottom Declaration & Bank Details & Signatory -->
-      <div class="bottom-box">
+      <!-- Bottom Declaration & Bank Details -->
+      <div style="border: 1px solid #000; padding: 6px; display: flex; justify-content: space-between; gap: 12px; font-size: 8.5px; margin-bottom: 6px;">
         <!-- Declaration -->
-        <div style="width: 40%; line-height: 1.3;">
+        <div style="width: 52%; line-height: 1.35;">
           <div style="font-weight: bold; text-decoration: underline; margin-bottom: 2px;">Declaration</div>
           <div>We declare that this quotation/estimation shows the actual price of the goods described and that all particulars are true and correct.</div>
         </div>
 
         <!-- Bank Details -->
-        <div style="width: 32%;">
+        <div style="width: 45%;">
           <div class="bank-box">
             <div style="font-weight: bold; text-decoration: underline; margin-bottom: 2px;">Company's Bank Details</div>
             <div><strong>Bank Name :</strong> ${bankName}</div>
@@ -558,11 +562,25 @@ export function printQuotation(quote: QuotationData) {
             <div><strong>Branch &amp; IFS Code :</strong> ${bankIfsc}</div>
           </div>
         </div>
+      </div>
 
-        <!-- Authorized Signatory -->
-        <div style="width: 28%; text-align: right; display: flex; flex-direction: column; justify-content: space-between;">
-          <div style="font-weight: 700; font-size: 9px;">for M/S GNAPIKA COMPUTER SHOPEE</div>
-          <div style="margin-top: 32px; font-size: 8.5px; font-weight: bold; border-top: 1px dashed #444; display: inline-block; padding-top: 2px;">
+      <!-- Dedicated Signatures Section (Customer Acceptance & Authorised Signatory with Ample Signing Space) -->
+      <div style="border: 1px solid #000; padding: 10px 14px; display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 4px;">
+        <!-- Customer Signature & Seal -->
+        <div style="width: 45%; text-align: left;">
+          <div style="font-weight: 700; font-size: 9px; text-transform: uppercase;">Customer's Acceptance &amp; Stamp</div>
+          <div style="font-size: 7.5px; color: #555; font-style: italic; margin-top: 1px;">(Sign and stamp to confirm order / estimation)</div>
+          <div style="height: 64px;"></div> <!-- Generous signing whitespace -->
+          <div style="border-top: 1px solid #000; display: inline-block; padding-top: 3px; min-width: 190px; text-align: center; font-weight: 700; font-size: 8.5px;">
+            Customer Signature &amp; Office Seal
+          </div>
+        </div>
+
+        <!-- Shop Authorised Signatory -->
+        <div style="width: 45%; text-align: right;">
+          <div style="font-weight: 700; font-size: 9px; text-transform: uppercase;">for M/S GNAPIKA COMPUTER SHOPEE</div>
+          <div style="height: 64px;"></div> <!-- Generous signing whitespace -->
+          <div style="border-top: 1px solid #000; display: inline-block; padding-top: 3px; min-width: 190px; text-align: center; font-weight: 700; font-size: 8.5px;">
             Authorised Signatory
           </div>
         </div>
