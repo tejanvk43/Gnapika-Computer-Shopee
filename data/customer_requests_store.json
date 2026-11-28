@@ -1,0 +1,69 @@
+{
+  "service_requests": [
+    {
+      "id": "1aad08f3-cabc-4d09-8cb1-3fa282799821",
+      "organization_id": "281358a2-aac3-4837-b8b3-a8616dbb545d",
+      "request_number": "HSR-262183",
+      "service_type": "home",
+      "customer_name": "Kishore Varma",
+      "phone_number": "9848022338",
+      "alt_phone_number": "",
+      "email": "",
+      "address": "Flat 402, Sai Residency, Opp. RTC Complex",
+      "device_type": "Laptop",
+      "brand": "",
+      "model": "",
+      "preferred_date": "Tomorrow",
+      "preferred_time_slot": "Morning (10:00 AM - 01:00 PM)",
+      "problem_description": "Dell Inspiron 15 laptop screen flickering and making beep sound on startup",
+      "voice_note_url": "",
+      "image_urls": [],
+      "status": "pending",
+      "created_at": "2026-11-28T09:26:57.311Z",
+      "updated_at": "2026-11-28T09:26:57.311Z"
+    }
+  ],
+  "quotation_requests": [
+    {
+      "id": "9cc9a8fe-f7df-435a-b7f2-5fe7023a9092",
+      "organization_id": "281358a2-aac3-4837-b8b3-a8616dbb545d",
+      "request_number": "QRQ-268762",
+      "customer_name": "Kishore Varma",
+      "phone_number": "9848022338",
+      "email": "kishore@gmail.com",
+      "company_name": "",
+      "category": "General Hardware",
+      "requirements_description": "Intel i7 14700K, 32GB DDR5 6000MHz RAM, RTX 4070 Super 12GB, 1TB Samsung 990 Pro SSD, 750W Gold PSU, 240mm AIO Cooler",
+      "budget_range": "",
+      "urgency": "Immediate (Ready to buy this week)",
+      "reference_image_urls": [],
+      "status": "pending",
+      "created_at": "2026-11-28T09:27:15.760Z",
+      "updated_at": "2026-11-28T09:27:15.760Z"
+    }
+  ],
+  "chat_messages": [
+    {
+      "id": "442a55a6-914d-4c71-af30-3a32f299d459",
+      "request_id": "1aad08f3-cabc-4d09-8cb1-3fa282799821",
+      "sender_type": "customer",
+      "sender_name": "Kishore Varma",
+      "message_text": "Hello, when can the technician arrive tomorrow morning?",
+      "image_url": "",
+      "audio_url": "",
+      "is_read": false,
+      "created_at": "2026-11-28T09:28:10.153Z"
+    },
+    {
+      "id": "f34959b4-7dd2-4417-8f63-2d4d666ec6a6",
+      "request_id": "1aad08f3-cabc-4d09-8cb1-3fa282799821",
+      "sender_type": "team",
+      "sender_name": "Technician Suresh",
+      "message_text": "Hi Kishore garu, I have been assigned to your service request. I will reach your address at Sai Residency around 10:30 AM with replacement screen and testing toolkit.",
+      "image_url": "",
+      "audio_url": "",
+      "is_read": false,
+      "created_at": "2026-11-28T09:28:22.969Z"
+    }
+  ]
+}

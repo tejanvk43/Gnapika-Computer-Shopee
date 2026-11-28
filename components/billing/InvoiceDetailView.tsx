@@ -15,10 +15,12 @@ import { formatCurrency } from '@/lib/formatters'
 import { printTaxInvoice } from '@/lib/invoicePrinter'
 import { PaymentCollectionModal } from '@/components/billing/PaymentCollectionModal'
 import { TaxInvoicePaperView } from '@/components/billing/TaxInvoicePaperView'
+import { ShareModal } from '@/components/common/ShareModal'
 
 export function InvoiceDetailView({ invoice }: { invoice: any }) {
   const [inv, setInv] = useState(invoice)
   const [showPaymentModal, setShowPaymentModal] = useState(false)
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false)
   const [payments, setPayments] = useState<any[]>([])
   const [loadingPayments, setLoadingPayments] = useState(false)
 
@@ -80,11 +82,10 @@ export function InvoiceDetailView({ invoice }: { invoice: any }) {
             <span>Print Invoice</span>
           </button>
           <button
-            onClick={() => {
-              navigator.clipboard.writeText(window.location.href)
-              toast.success('Invoice link copied to clipboard!')
-            }}
+            type="button"
+            onClick={() => setIsShareModalOpen(true)}
             className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold bg-primary text-white hover:bg-primary/90 transition shadow-xs cursor-pointer"
+            title="Share via WhatsApp or Email"
           >
             <Share2 className="w-4 h-4" />
             <span>Share</span>
@@ -171,6 +172,35 @@ export function InvoiceDetailView({ invoice }: { invoice: any }) {
         onPaymentSuccess={(updated) => {
           setInv(updated)
           fetchPayments()
+        }}
+      />
+
+      {/* Share Modal (WhatsApp & Email) */}
+      <ShareModal
+        isOpen={isShareModalOpen}
+        onClose={() => setIsShareModalOpen(false)}
+        data={{
+          title: `Tax Invoice #${inv?.invoice_number || ''}`,
+          documentType: 'invoice',
+          documentNumber: inv?.invoice_number,
+          recipientName:
+            inv?.customer?.customer_name ||
+            inv?.customers?.customer_name ||
+            inv?.invoice_snapshot?.customer?.customer_name ||
+            'Customer',
+          recipientPhone:
+            inv?.customer?.phone_number ||
+            inv?.customers?.phone_number ||
+            inv?.invoice_snapshot?.customer?.phone_number ||
+            '',
+          recipientEmail:
+            inv?.customer?.email ||
+            inv?.customers?.email ||
+            inv?.invoice_snapshot?.customer?.email ||
+            '',
+          grandTotal,
+          balanceDue,
+          url: typeof window !== 'undefined' ? window.location.href : undefined,
         }}
       />
     </div>

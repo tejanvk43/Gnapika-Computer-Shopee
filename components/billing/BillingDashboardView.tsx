@@ -17,9 +17,11 @@ import {
   Banknote,
   DollarSign,
   TrendingUp,
+  Share2,
 } from 'lucide-react'
 import { formatCurrency } from '@/lib/formatters'
 import { PaymentCollectionModal } from '@/components/billing/PaymentCollectionModal'
+import { ShareModal } from '@/components/common/ShareModal'
 
 interface BillingDashboardViewProps {
   initialInvoices: any[]
@@ -30,6 +32,7 @@ export function BillingDashboardView({ initialInvoices }: BillingDashboardViewPr
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'DUE' | 'PAID'>('ALL')
   const [selectedInvoiceForPayment, setSelectedInvoiceForPayment] = useState<any | null>(null)
+  const [invoiceToShare, setInvoiceToShare] = useState<any | null>(null)
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false)
 
   // Overall KPI metrics
@@ -343,10 +346,20 @@ export function BillingDashboardView({ initialInvoices }: BillingDashboardViewPr
                           <Link
                             href={`/dashboard/billing/${invoice.id}`}
                             className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 text-slate-700 dark:text-slate-300 transition"
+                            title="View invoice"
                           >
                             <Eye className="w-3.5 h-3.5 text-primary" />
                             <span>View</span>
                           </Link>
+                          <button
+                            type="button"
+                            onClick={() => setInvoiceToShare(invoice)}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition cursor-pointer"
+                            title="Share invoice via WhatsApp or Email"
+                          >
+                            <Share2 className="w-3.5 h-3.5 text-emerald-600" />
+                            <span className="hidden sm:inline">Share</span>
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -367,6 +380,39 @@ export function BillingDashboardView({ initialInvoices }: BillingDashboardViewPr
           setSelectedInvoiceForPayment(null)
         }}
         onPaymentSuccess={handlePaymentSuccess}
+      />
+
+      {/* Share Modal (WhatsApp & Email) */}
+      <ShareModal
+        isOpen={!!invoiceToShare}
+        onClose={() => setInvoiceToShare(null)}
+        data={
+          invoiceToShare
+            ? {
+                title: `Tax Invoice #${invoiceToShare.invoice_number || ''}`,
+                documentType: 'invoice',
+                documentNumber: invoiceToShare.invoice_number,
+                recipientName:
+                  invoiceToShare.customers?.customer_name ||
+                  invoiceToShare.customer?.customer_name ||
+                  'Customer',
+                recipientPhone:
+                  invoiceToShare.customers?.phone_number ||
+                  invoiceToShare.customer?.phone_number ||
+                  '',
+                recipientEmail:
+                  invoiceToShare.customers?.email ||
+                  invoiceToShare.customer?.email ||
+                  '',
+                grandTotal: parseFloat(invoiceToShare.total_grand_amount || 0),
+                balanceDue: parseFloat(invoiceToShare.balance_due || 0),
+                url:
+                  typeof window !== 'undefined'
+                    ? `${window.location.origin}/dashboard/billing/${invoiceToShare.id}`
+                    : undefined,
+              }
+            : null
+        }
       />
     </div>
   )

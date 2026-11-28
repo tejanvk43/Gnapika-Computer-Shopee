@@ -1,14 +1,16 @@
 'use client'
 
-import React from 'react'
+import React, { useState } from 'react'
 import { GNAPIKA_LOGO_BASE64, GNAPIKA_WATERMARK_BASE64 } from '@/lib/brandAssets'
 import { SHOP_DETAILS, formatCurrency, numberToWordsRupees } from '@/lib/formatters'
 import { QuotationData } from '@/lib/quotations'
 import { printQuotation } from '@/lib/quotationPrinter'
-import { Printer, ArrowLeft, Building2, Calendar, FileText } from 'lucide-react'
+import { Printer, ArrowLeft, Building2, Calendar, FileText, Share2 } from 'lucide-react'
 import Link from 'next/link'
+import { ShareModal } from '@/components/common/ShareModal'
 
 export function QuotationPaperView({ quote }: { quote: QuotationData }) {
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false)
   if (!quote) return null
 
   const items = quote.items || []
@@ -80,8 +82,18 @@ export function QuotationPaperView({ quote }: { quote: QuotationData }) {
 
         <div className="flex items-center gap-2">
           <button
+            type="button"
+            onClick={() => setIsShareModalOpen(true)}
+            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 text-xs font-semibold shadow-xs transition cursor-pointer"
+            title="Share Quotation via WhatsApp or Email"
+          >
+            <Share2 className="w-4 h-4 text-primary" />
+            <span>Share</span>
+          </button>
+          <button
+            type="button"
             onClick={() => printQuotation(quote)}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary hover:bg-primary/90 text-white text-xs font-bold shadow-md shadow-primary/20 transition"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary hover:bg-primary/90 text-white text-xs font-bold shadow-md shadow-primary/20 transition cursor-pointer"
           >
             <Printer className="w-4 h-4" />
             <span>Print Quotation</span>
@@ -458,6 +470,22 @@ export function QuotationPaperView({ quote }: { quote: QuotationData }) {
           </div>
         </div>
       </div>
+
+      {/* Share Modal (WhatsApp & Email) */}
+      <ShareModal
+        isOpen={isShareModalOpen}
+        onClose={() => setIsShareModalOpen(false)}
+        data={{
+          title: `Quotation #${quote.quotation_number}`,
+          documentType: 'quotation',
+          documentNumber: quote.quotation_number,
+          recipientName: quote.company_name || quote.quotation_name || 'Client',
+          recipientPhone: quote.company_phone || '',
+          recipientEmail: quote.company_email || '',
+          grandTotal: quote.grand_total || 0,
+          url: typeof window !== 'undefined' ? window.location.href : undefined,
+        }}
+      />
     </div>
   )
 }

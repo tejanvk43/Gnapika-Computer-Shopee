@@ -4,6 +4,7 @@ import { supabaseService } from '@/lib/supabase'
 import Link from 'next/link'
 import { PrintServiceSlipButton } from '@/components/services/PrintServiceSlipButton'
 import { PrintServiceInvoiceButton } from '@/components/services/PrintServiceInvoiceButton'
+import { ShareServiceButton } from '@/components/services/ShareServiceButton'
 import { ServiceBillingCard } from '@/components/services/ServiceBillingCard'
 import { ServiceStatusAdvancer } from '@/components/services/ServiceStatusAdvancer'
 import { extractAccessories, cleanProblemDescription } from '@/lib/serviceHelpers'
@@ -120,6 +121,7 @@ export default async function ServiceDetailPage({
         </div>
 
         <div className="flex items-center gap-3">
+          <ShareServiceButton service={service} invoice={serviceInvoice} />
           {serviceInvoice && <PrintServiceInvoiceButton invoice={serviceInvoice} />}
           <PrintServiceSlipButton service={service} />
         </div>

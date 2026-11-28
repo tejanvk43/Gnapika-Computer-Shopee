@@ -13,9 +13,11 @@ import {
   FileText,
   Clock,
   ArrowRight,
+  Share2,
 } from 'lucide-react'
 import { printTaxInvoice } from '@/lib/invoicePrinter'
 import { formatCurrency } from '@/lib/formatters'
+import { ShareModal } from '@/components/common/ShareModal'
 
 interface ServiceBillingCardProps {
   service: any
@@ -28,6 +30,7 @@ export function ServiceBillingCard({
 }: ServiceBillingCardProps) {
   const router = useRouter()
   const [invoice, setInvoice] = useState<any | null>(initialInvoice)
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false)
 
   // Form states for generating bill
   const defaultCost = parseFloat(service.estimated_cost) || 0
@@ -141,14 +144,25 @@ export function ServiceBillingCard({
             </div>
           </div>
 
-          <button
-            type="button"
-            onClick={handlePrintExistingBill}
-            className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-md transition cursor-pointer"
-          >
-            <Printer className="w-4 h-4" />
-            <span>Print Service Bill</span>
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setIsShareModalOpen(true)}
+              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold text-xs shadow-xs transition cursor-pointer"
+              title="Share Service Bill via WhatsApp or Email"
+            >
+              <Share2 className="w-4 h-4 text-emerald-600" />
+              <span>Share</span>
+            </button>
+            <button
+              type="button"
+              onClick={handlePrintExistingBill}
+              className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-md transition cursor-pointer"
+            >
+              <Printer className="w-4 h-4" />
+              <span>Print Service Bill</span>
+            </button>
+          </div>
         </div>
 
         {/* Breakdown Grid */}
@@ -182,6 +196,26 @@ export function ServiceBillingCard({
             </span>
           </div>
         </div>
+
+        {/* Share Modal (WhatsApp & Email) */}
+        <ShareModal
+          isOpen={isShareModalOpen}
+          onClose={() => setIsShareModalOpen(false)}
+          data={{
+            title: `Service Tax Invoice #${invoice.invoice_number}`,
+            documentType: 'invoice',
+            documentNumber: invoice.invoice_number,
+            recipientName: service.customers?.customer_name || 'Customer',
+            recipientPhone: service.customers?.phone_number || '',
+            recipientEmail: service.customers?.email || '',
+            grandTotal: billedGrandTotal,
+            balanceDue: billedDue,
+            url:
+              typeof window !== 'undefined'
+                ? `${window.location.origin}/dashboard/billing/${invoice.id}`
+                : undefined,
+          }}
+        />
       </div>
     )
   }

@@ -17,7 +17,9 @@ import {
   ShieldCheck,
   ChevronRight,
   TrendingUp,
+  Share2,
 } from 'lucide-react'
+import { ShareModal } from '@/components/common/ShareModal'
 
 interface QuotationsDashboardViewProps {
   quotations: QuotationData[]
@@ -32,6 +34,7 @@ export function QuotationsDashboardView({
 }: QuotationsDashboardViewProps) {
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedCompany, setSelectedCompany] = useState<string | null>(null)
+  const [quoteToShare, setQuoteToShare] = useState<QuotationData | null>(null)
 
   // Filter quotations by search term and selected company
   const filteredQuotations = useMemo(() => {
@@ -317,8 +320,16 @@ export function QuotationsDashboardView({
                           </Link>
                           <button
                             type="button"
+                            onClick={() => setQuoteToShare(q)}
+                            className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
+                            title="Share quotation via WhatsApp or Email"
+                          >
+                            <Share2 className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
                             onClick={() => printQuotation(q)}
-                            className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+                            className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
                             title="Print quotation"
                           >
                             <Printer className="w-3.5 h-3.5" />
@@ -333,6 +344,29 @@ export function QuotationsDashboardView({
           </div>
         )}
       </div>
+
+      {/* Share Modal (WhatsApp & Email) */}
+      <ShareModal
+        isOpen={!!quoteToShare}
+        onClose={() => setQuoteToShare(null)}
+        data={
+          quoteToShare
+            ? {
+                title: `Quotation #${quoteToShare.quotation_number}`,
+                documentType: 'quotation',
+                documentNumber: quoteToShare.quotation_number,
+                recipientName: quoteToShare.company_name || quoteToShare.quotation_name || 'Client',
+                recipientPhone: quoteToShare.company_phone || '',
+                recipientEmail: quoteToShare.company_email || '',
+                grandTotal: quoteToShare.grand_total || 0,
+                url:
+                  typeof window !== 'undefined'
+                    ? `${window.location.origin}/dashboard/quotations/${quoteToShare.id}`
+                    : undefined,
+              }
+            : null
+        }
+      />
     </div>
   )
 }

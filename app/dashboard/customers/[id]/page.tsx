@@ -2,7 +2,10 @@
 import { getCurrentUserContext } from '@/lib/auth'
 import { redirect, notFound } from 'next/navigation'
 import { supabaseService } from '@/lib/supabase'
+import { getAmcContracts, getCustomerDevices, getCrmActivities } from '@/lib/crm'
 import { CustomerDetailView } from '@/components/customers/CustomerDetailView'
+
+export const dynamic = 'force-dynamic'
 
 export default async function CustomerDetailPage({
   params,
@@ -26,22 +29,21 @@ export default async function CustomerDetailPage({
     notFound()
   }
 
-  // 2. Fetch customer invoices with item product names
+  // 2. Fetch customer invoices with complete details & items
   const { data: invoices } = await supabaseService
     .from('invoices')
     .select(`
-      id,
-      invoice_number,
-      invoice_date,
-      total_grand_amount,
-      amount_paid,
-      balance_due,
-      payment_method,
+      *,
+      customers ( customer_name, phone_number, alt_phone_number, email, address, gstin ),
       invoice_items (
         id,
         quantity,
+        unit_price_snapshot,
+        discount_applied,
+        gst_rate_snapshot,
+        taxable_amount,
         line_total,
-        products ( name, sku )
+        products ( name, sku, description )
       )
     `)
     .eq('customer_id', customerId)
@@ -68,12 +70,22 @@ export default async function CustomerDetailPage({
     .eq('organization_id', context.organization_id)
     .order('created_at', { ascending: false })
 
+  // 4. Fetch CRM data (AMCs, Devices, Activities)
+  const [amcs, devices, activities] = await Promise.all([
+    getAmcContracts(context.organization_id, customerId),
+    getCustomerDevices(context.organization_id, customerId),
+    getCrmActivities(context.organization_id, customerId),
+  ])
+
   return (
     <div className="max-w-6xl mx-auto">
       <CustomerDetailView
         customer={customer}
         invoices={invoices || []}
         services={services || []}
+        amcs={amcs || []}
+        devices={devices || []}
+        activities={activities || []}
       />
     </div>
   )

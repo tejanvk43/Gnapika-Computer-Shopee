@@ -23,6 +23,7 @@ import Link from 'next/link'
 import { SHOP_DETAILS, formatCurrency } from '@/lib/formatters'
 import { printDualServiceSlip } from '@/lib/serviceSlipPrinter'
 import { extractAccessories, cleanProblemDescription } from '@/lib/serviceHelpers'
+import { ShareModal } from '@/components/common/ShareModal'
 
 const COMMON_ACCESSORIES = [
   'Power Adapter / Charger',
@@ -99,6 +100,7 @@ export function ServiceBookingForm({
 
   // Generated Service Result
   const [registeredService, setRegisteredService] = useState<any | null>(null)
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false)
 
   const toggleAccessory = (item: string) => {
     if (accessories.includes(item)) {
@@ -407,8 +409,17 @@ export function ServiceBookingForm({
             <div className="mt-6 flex flex-wrap gap-3 justify-end">
               <button
                 type="button"
+                onClick={() => setIsShareModalOpen(true)}
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-semibold bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition shadow-xs cursor-pointer"
+                title="Share Slip via WhatsApp or Email"
+              >
+                <Share2 className="w-4 h-4 text-orange-600" />
+                <span>Share Slip</span>
+              </button>
+              <button
+                type="button"
                 onClick={() => printDualServiceSlip(registeredService)}
-                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-semibold bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition shadow-xs"
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-semibold bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition shadow-xs cursor-pointer"
               >
                 <Printer className="w-4 h-4 text-orange-600" />
                 <span>Print Dual Slip</span>
@@ -423,7 +434,7 @@ export function ServiceBookingForm({
               <button
                 type="button"
                 onClick={resetForm}
-                className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl text-xs font-semibold bg-orange-600 text-white hover:bg-orange-700 transition shadow-xs"
+                className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl text-xs font-semibold bg-orange-600 text-white hover:bg-orange-700 transition shadow-xs cursor-pointer"
               >
                 <Plus className="w-4 h-4" />
                 <span>Book Another Service</span>
@@ -432,6 +443,36 @@ export function ServiceBookingForm({
           </div>
         </div>
       )}
+
+      {/* Share Modal (WhatsApp & Email) */}
+      <ShareModal
+        isOpen={isShareModalOpen}
+        onClose={() => setIsShareModalOpen(false)}
+        data={
+          registeredService
+            ? {
+                title: `Service Slip #${registeredService.service_ref_number}`,
+                documentType: 'service',
+                documentNumber: registeredService.service_ref_number,
+                recipientName:
+                  registeredService.customers?.customer_name ||
+                  customer.customer_name ||
+                  'Customer',
+                recipientPhone:
+                  registeredService.customers?.phone_number ||
+                  customer.phone_number ||
+                  '',
+                recipientEmail:
+                  registeredService.customers?.email || customer.email || '',
+                grandTotal: parseFloat(registeredService.estimated_cost || 0),
+                url:
+                  typeof window !== 'undefined' && registeredService.id
+                    ? `${window.location.origin}/dashboard/services/${registeredService.id}`
+                    : undefined,
+              }
+            : null
+        }
+      />
 
       {/* Service Registration Form */}
       <form onSubmit={handleSubmit} className="space-y-6 max-w-4xl mx-auto">

@@ -29,6 +29,7 @@ import { BarcodeScanner } from '@/components/BarcodeScanner'
 import { SHOP_DETAILS, formatCurrency, numberToWordsRupees } from '@/lib/formatters'
 import { printTaxInvoice } from '@/lib/invoicePrinter'
 import { TaxInvoicePaperView } from '@/components/billing/TaxInvoicePaperView'
+import { ShareModal } from '@/components/common/ShareModal'
 
 interface ProductItem {
   id: string
@@ -125,6 +126,7 @@ export function POSBillingTerminal({
 
   // Generated Invoice Result
   const [generatedInvoice, setGeneratedInvoice] = useState<any | null>(null)
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false)
 
   // Audio synthesizer for zero-latency instant feedback
   const playSound = (success: boolean) => {
@@ -477,9 +479,10 @@ export function POSBillingTerminal({
               <TaxInvoicePaperView invoice={generatedInvoice} />
             </div>
 
-            {/* Action Buttons: Print, Reset */}
+            {/* Action Buttons: Print, Share, Reset */}
             <div className="flex flex-col sm:flex-row justify-between items-center gap-3 pt-3 border-t border-slate-200 dark:border-slate-800">
               <button
+                type="button"
                 onClick={resetForm}
                 className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800 transition cursor-pointer"
               >
@@ -487,17 +490,66 @@ export function POSBillingTerminal({
                 <span>New Bill</span>
               </button>
 
-              <button
-                onClick={() => printTaxInvoice(generatedInvoice)}
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl bg-primary hover:bg-primary/90 text-white font-bold text-xs shadow-md transition cursor-pointer"
-              >
-                <Printer className="w-4 h-4" />
-                <span>Print Invoice</span>
-              </button>
+              <div className="flex items-center gap-2.5 w-full sm:w-auto">
+                <button
+                  type="button"
+                  onClick={() => setIsShareModalOpen(true)}
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 text-xs font-semibold text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer shadow-xs"
+                  title="Share Tax Invoice via WhatsApp or Email"
+                >
+                  <Share2 className="w-4 h-4 text-emerald-600" />
+                  <span>Share Bill</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => printTaxInvoice(generatedInvoice)}
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl bg-primary hover:bg-primary/90 text-white font-bold text-xs shadow-md transition cursor-pointer"
+                >
+                  <Printer className="w-4 h-4" />
+                  <span>Print Invoice</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>
       )}
+
+      {/* Share Modal (WhatsApp & Email) */}
+      <ShareModal
+        isOpen={isShareModalOpen}
+        onClose={() => setIsShareModalOpen(false)}
+        data={
+          generatedInvoice
+            ? {
+                title: `Tax Invoice #${generatedInvoice.invoice_number || ''}`,
+                documentType: 'invoice',
+                documentNumber: generatedInvoice.invoice_number,
+                recipientName:
+                  generatedInvoice.customer?.customer_name ||
+                  generatedInvoice.customers?.customer_name ||
+                  customer.customer_name ||
+                  'Customer',
+                recipientPhone:
+                  generatedInvoice.customer?.phone_number ||
+                  generatedInvoice.customers?.phone_number ||
+                  customer.phone_number ||
+                  '',
+                recipientEmail:
+                  generatedInvoice.customer?.email ||
+                  generatedInvoice.customers?.email ||
+                  customer.email ||
+                  '',
+                grandTotal: parseFloat(generatedInvoice.total_grand_amount || 0),
+                balanceDue: parseFloat(generatedInvoice.balance_due || 0),
+                url:
+                  typeof window !== 'undefined' && generatedInvoice.id
+                    ? `${window.location.origin}/dashboard/billing/${generatedInvoice.id}`
+                    : undefined,
+              }
+            : null
+        }
+      />
 
       {/* Main Grid: Left (Customer + Products + Cart) / Right (Billing Summary & Payment) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">

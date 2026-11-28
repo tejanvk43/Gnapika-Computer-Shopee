@@ -1,6 +1,6 @@
-// components/purchases/PurchaseInvoiceDetailView.tsx
 'use client'
 
+import { useState } from 'react'
 import Link from 'next/link'
 import {
   ArrowLeft,
@@ -18,8 +18,10 @@ import {
 import { toast } from 'sonner'
 import { SHOP_DETAILS, formatCurrency, numberToWordsRupees } from '@/lib/formatters'
 import { printPurchaseInvoice } from '@/lib/purchaseInvoicePrinter'
+import { ShareModal } from '@/components/common/ShareModal'
 
 export function PurchaseInvoiceDetailView({ purchase }: { purchase: any }) {
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false)
   const snapshot = purchase.invoice_snapshot || purchase
   const supplier = snapshot.supplier || purchase.suppliers || {}
   const items = snapshot.items || purchase.purchase_receipt_items || []
@@ -67,13 +69,10 @@ export function PurchaseInvoiceDetailView({ purchase }: { purchase: any }) {
             <span>Print Purchase Bill</span>
           </button>
           <button
-            onClick={() => {
-              if (typeof window !== 'undefined') {
-                navigator.clipboard.writeText(window.location.href)
-                toast.success('Purchase invoice link copied to clipboard!')
-              }
-            }}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold bg-primary text-white hover:bg-primary/90 transition shadow-xs"
+            type="button"
+            onClick={() => setIsShareModalOpen(true)}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold bg-primary text-white hover:bg-primary/90 transition shadow-xs cursor-pointer"
+            title="Share via WhatsApp or Email"
           >
             <Share2 className="w-4 h-4" />
             <span>Share</span>
@@ -253,6 +252,21 @@ export function PurchaseInvoiceDetailView({ purchase }: { purchase: any }) {
           </div>
         </div>
       </div>
+
+      {/* Share Modal (WhatsApp & Email) */}
+      <ShareModal
+        isOpen={isShareModalOpen}
+        onClose={() => setIsShareModalOpen(false)}
+        data={{
+          title: `Purchase Bill #${invoiceNumber}`,
+          documentType: 'purchase',
+          documentNumber: invoiceNumber,
+          recipientName: supplierName,
+          recipientPhone: supplierPhone !== '-' ? supplierPhone : '',
+          grandTotal,
+          url: typeof window !== 'undefined' ? window.location.href : undefined,
+        }}
+      />
     </div>
   )
 }

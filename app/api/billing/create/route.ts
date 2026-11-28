@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 import { supabaseService } from '@/lib/supabase'
 import { getCurrentUserContext } from '@/lib/auth'
 import { generateNextInvoiceNumber } from '@/lib/sequence'
+import { syncCustomer } from '@/lib/customerSync'
 
 export async function POST(request: Request) {
   try {
@@ -29,43 +30,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "At least one product item or service charge is required in the bill." }, { status: 400 })
     }
 
-    // 1. Resolve or Create Customer
+    // 1. Resolve or Create Customer with two-way synchronization
     let customerId = customer?.id
+    let syncedCustomer: any = null
 
-    if (!customerId && customer?.customer_name) {
-      // Check if exists by phone
-      if (customer.phone_number) {
-        const { data: existingCustomer } = await supabaseService
-          .from('customers')
-          .select('id')
-          .eq('organization_id', context.organization_id)
-          .eq('phone_number', customer.phone_number)
-          .maybeSingle()
-
-        if (existingCustomer) {
-          customerId = existingCustomer.id
-        }
-      }
-
-      // If still not found, create new customer
-      if (!customerId) {
-        const { data: newCustomer, error: custErr } = await supabaseService
-          .from('customers')
-          .insert([{
-            organization_id: context.organization_id,
-            customer_name: customer.customer_name,
-            phone_number: customer.phone_number || null,
-            alt_phone_number: customer.alt_phone_number || null,
-            email: customer.email || null,
-            address: customer.address || null,
-            gstin: customer.gstin || null,
-          }])
-          .select()
-          .single()
-
-        if (custErr) throw custErr
-        customerId = newCustomer.id
-      }
+    if (customer?.customer_name) {
+      syncedCustomer = await syncCustomer(context.organization_id, customer)
+      customerId = syncedCustomer?.id
     }
 
     if (!customerId) {
@@ -249,6 +220,7 @@ export async function POST(request: Request) {
       success: true,
       invoice: newInvoice,
       invoice_number: invoiceNumber,
+      customer: syncedCustomer,
     }, { status: 201 })
   } catch (error: any) {
     console.error("Billing creation error:", error)

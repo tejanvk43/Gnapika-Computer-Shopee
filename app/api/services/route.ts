@@ -3,6 +3,7 @@ import { supabaseService } from '@/lib/supabase'
 import { getCurrentUserContext } from '@/lib/auth'
 import { generateNextServiceRefNumber } from '@/lib/sequence'
 import { extractAccessories, cleanProblemDescription } from '@/lib/serviceHelpers'
+import { syncCustomer } from '@/lib/customerSync'
 
 export const dynamic = 'force-dynamic'
 
@@ -58,40 +59,21 @@ export async function POST(request: Request) {
       accessories,
     } = body
 
-    // 1. Resolve or Create Customer
+    // 1. Resolve or Create Customer with two-way synchronization
     let resolvedCustomerId = customer_id || customer?.id
+    let syncedCustomer: any = null
 
-    if (!resolvedCustomerId && customer?.customer_name) {
-      if (customer.phone_number) {
-        const { data: existing } = await supabaseService
-          .from('customers')
-          .select('id')
-          .eq('organization_id', context.organization_id)
-          .eq('phone_number', customer.phone_number)
-          .maybeSingle()
-
-        if (existing) {
-          resolvedCustomerId = existing.id
-        }
-      }
-
-      if (!resolvedCustomerId) {
-        const { data: newCustomer, error: custError } = await supabaseService
-          .from('customers')
-          .insert([{
-            organization_id: context.organization_id,
-            customer_name: customer.customer_name,
-            phone_number: customer.phone_number || null,
-            alt_phone_number: customer.alt_phone_number || null,
-            email: customer.email || null,
-            address: customer.address || null,
-          }])
-          .select()
-          .single()
-
-        if (custError) throw custError
-        resolvedCustomerId = newCustomer.id
-      }
+    if (customer?.customer_name) {
+      syncedCustomer = await syncCustomer(context.organization_id, customer)
+      resolvedCustomerId = syncedCustomer?.id
+    } else if (resolvedCustomerId) {
+      const { data: existing } = await supabaseService
+        .from('customers')
+        .select('*')
+        .eq('organization_id', context.organization_id)
+        .eq('id', resolvedCustomerId)
+        .maybeSingle()
+      syncedCustomer = existing
     }
 
     if (!resolvedCustomerId) {
@@ -196,6 +178,9 @@ export async function POST(request: Request) {
     // Always attach parsed accessories array & clean description to response
     newService.accessories = accessoriesList
     newService.clean_problem_description = problem_description || 'Diagnostic & Service'
+    if (syncedCustomer) {
+      newService.customers = syncedCustomer
+    }
 
     // Initial status history entry
     await supabaseService
